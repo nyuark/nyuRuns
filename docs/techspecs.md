@@ -145,8 +145,8 @@ of the coding conventions.
 - reading rich text and source code, handwriting and scanned text;
 - mixing sounds: waveform, loudness, fades, tempo.
 
-**A separate project, codename nyuTron:** the scaffolding of models and
-code, an installation wizard, a manager of advanced settings, and
+**A separate project, codename nyuTron:** a visual wizard around
+`makerun`, an installation wizard, a manager of advanced settings, and
 ready-made data kits (members, clients, orders, tasks, projects). These
 are tools around nyuRuns, not part of it.
 
@@ -157,7 +157,8 @@ some places than 1.0 delivers. What changed:
 
 - **CRUDL out of the box.** The models give every data source its CRUDL
   operations, but a run still declares its actions: no endpoint serves a
-  table from configuration alone.
+  table from configuration alone. `makerun` writes those actions from an
+  SQL table instead (7.10).
 - **Files as data sources.** An action reads and writes files as
   documents. Using them as a configured source of inputs, next to the
   request, is left for version 1.1.
@@ -365,7 +366,7 @@ left out. Give every action a definition, even one without inputs.
 
 A preset writes its replies in one format (`jsonData` unless told
 otherwise). An action that needs another, a CSV export for instance,
-chooses the format of its own reply (`useReplyFormat('csvTable')`). Name
+chooses the format of its own reply (`setReplyFormat('csvTable')`). Name
 the sites allowed to call from a browser (`corsList`) rather than allowing
 all of them.
 
@@ -511,7 +512,7 @@ www/index.php
 The entry point, `www/index.php`, defines the project's folders and
 creates the Runner. With no preset named, the Runner reads
 `conf/doorways.lst` first and picks the line matching the host and the start
-of the path (`Runner::pickPresetName()`); the `basePath` of that line is
+of the path (`Runner::findPresetName()`); the `basePath` of that line is
 taken off the path before routing, kept as `routBase`. No map or no match
 gives `default`.
 
@@ -541,7 +542,8 @@ The request is read once, when it's built: its method, URL, headers, query
 and body (JSON, a form, or a multipart body with files, for every method).
 
 - A body larger than `REQ_SIZE`, or a multipart body with more parts than
-  `REQ_PART`, isn't read: the request gets a 413, and a warning is logged.
+  `REQ_PART`, gets a 413, and a warning is logged. A body announced larger
+  isn't read at all; one found larger is read no further than the limit.
 - The preset's `inputSet` block says which sources the inputs come from.
   Server and client values are never inputs: an action reads them through
   the request.
@@ -624,7 +626,7 @@ Otherwise the route names an application, and its Controller
    doesn't run.
 4. **The models** of the application are loaded (`ModelStack`).
 5. **The actionset** is created with a read-only `RunContext` (what it
-   needs for this request), runs its `setupForAction()` hook, then runs
+   needs for this request), runs its `openEachAction()` hook, then runs
    the action, with the route's parameter when there is one.
 
 Whatever fails in steps 1 and 2 gets the same reply, `404 Not Found`, as a
@@ -634,7 +636,7 @@ default action that names no action is the application's mistake, not the
 client's: it's a 500, logged as an error.
 
 An action sets its status and its output. It can stop at any point, from
-itself, from a helper or from `setupForAction()`, with `stopThisAction()`:
+itself, from a helper or from `openEachAction()`, with `stopThisAction()`:
 stopping isn't an error, and its status becomes the reply's.
 `needsActionRle()` stops it with a 404, just as the role of a route does,
 and `redirectClient()` with a redirection.
@@ -775,10 +777,10 @@ A carrier and a check that can't work together refuse every request
 - **`App\Actionset`**: the parent of every run's `Actions` class. Each of
   the run's own public methods is an action. The actionset hands them
   their inputs, models, access, request and response, runs the
-  `setupForAction()` hook first, and offers the helpers
-  `serveFileReply()`, `answerPageFlag()`, `redirectClient()`,
-  `routLinkString()`, `useReplyFormat()`, `getLoggerOfApp()`,
-  `needsActionRle()`, `holdsActionRle()` and `stopThisAction()`.
+  `openEachAction()` hook first, and offers the helpers
+  `serveFileReply()`, `servePageReply()`, `redirectClient()`,
+  `makeUrlOfRoute()`, `setReplyFormat()`, `getLoggerOfApp()`,
+  `needsActionRle()`, `hasRoleOrAbove()` and `stopThisAction()`.
 - **`App\ModelStack`**: the models of a run, every `*Model.php` of its
   `mods/` folder, then those shared in `runs/Shared`.
 - **`App\StopRun`**: what `stopThisAction()` throws to stop an action on
@@ -822,8 +824,8 @@ order).
   text and spreadsheet, ePub.
 - **`Writers\*`**, chosen by `Writers\Index`: the same formats except INI,
   with PDF written through dompdf.
-- **`Fluxd`**: a source read piece by piece (a file, the request body, a
-  binary value of a table), never held whole unless asked.
+- **`Fluxd`**: a source read piece by piece (a file, the request body), or
+  bytes already in memory (a binary value read from a table).
 - **`Archv`**: a zip archive read entry by entry, in memory.
 
 **Media.**
@@ -848,10 +850,10 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 - **`Shell\Console`**: reads the arguments of `php nyuRun`, finds the
   command, and runs it.
 - **`Shell\Command`**: the parent of every command, with its sub-commands
-  (`subsTableArray()`), along with **`Options`**, **`Printer`** (text, or
+  (`listSubCmndDct()`), along with **`Options`**, **`Printer`** (text, or
   JSON for a script) and **`ShellStop`** (the exit code).
 - **`Shell\Cmds\*`**: `install`, `setting`, `testing`, `cleanup`, `showlog`,
-  `cronjob`, `account`, `devices`, `bundles`, `appkeys` (chapter 7).
+  `cronjob`, `account`, `devices`, `bundles`, `appkeys`, `makerun` (chapter 7).
 - **`HealthChk`** runs the checks of `install checkAll`. **`ConfFile`**
   writes the configuration files, each in its own way, and **`UserFile`**
   the users file. **`ActCaller`** calls an action of a run from the
@@ -1234,7 +1236,21 @@ A run brings its own command with `runs/<App>/Shell.php`, which declares
 the class `Shell` of its namespace, extending `Shell\Command`. The command
 is the run's name in lower case, and each sub-command runs a method named
 `invoke` plus its name (`invokeSayHello` for `sayHello`), listed in its
-`subsTableArray()`.
+`listSubCmndDct()`.
+
+### 7.10 `makerun`: a Run from a table
+
+| Sub-command | Does |
+|---|---|
+| `crudlRun <App>` | asks the database (SQL only), the table, its key, the fields and their formats, the actions (`index`, `view`, `create`, `update`, `remove`), the child tables, the least role and the mount; writes `runs/<App>/runspec.json`, then the Run; a Run that exists is refused |
+| `fromSpec <App>` | writes the Run again from its `runspec.json`, without a question; a file that exists is replaced only when agreed (`--yesToAll`), and files changed by hand aren't merged |
+| `fullList` | lists the Runs that have a spec: database, table, actions, children |
+
+The Run gets its `routes.rte`, its `Actions.php` and an input file per
+action. The questions fill the spec, and the generator reads only the spec,
+so a Run can be written again after the spec is edited. Every file written
+is traced on `shell`, and the `minRoles` line to add to the preset is
+printed. A bundle leaves `runspec.json` out.
 
 ---
 
@@ -1282,27 +1298,27 @@ class Actions extends Actionset {
 	 * Lists the notes, those whose name holds the text asked for.
 	 */
 	public function index(): Void {
-		$noteLst = $this->modelStack->getModelObject('listing');
-		$nameTxt = strval( $this->inputsRgst->obtainDefValue('name', '') );
-		if( $nameTxt!='' ){
-			$noteLst->replaceFilters( Array('noteName~'=>'*'.$nameTxt.'*') );
+		$listModl = $this->modelStack->getModelObject('listing');
+		$nameText = strval( $this->inputsRegr->getValueOrDflt('name', '') );
+		if( $nameText!='' ){
+			$listModl->setListFilters( Array('noteName~'=>'*'.$nameText.'*') );
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $noteLst->readRowsOfList();
+		$this->replyValue = $listModl->readRowsOfList();
 	}
 
 	/**
 	 * Shows one note.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function view( String $idOfNoteText ): Void {
-		$noteArr = $this->modelStack->getModelObject('single')->loadRecordList($idOfNoteText);
-		if( empty($noteArr) ){
+	public function view( String $recordIdText ): Void {
+		$rcrdVals = $this->modelStack->getModelObject('single')->loadRecordList($recordIdText);
+		if( empty($rcrdVals) ){
 			$this->stopThisAction(404, 'Not Found');
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $noteArr;
+		$this->replyValue = $rcrdVals;
 	}
 }
 ```
@@ -1311,7 +1327,7 @@ class Actions extends Actionset {
   without it, such a request is a 500, logged on `runner`, and `install checkAll`
   tells it (`default <Run>`). A run declaring its routes needs none: its `""`
   route says what its path alone answers.
-- **`setupForAction()`**, when the run declares it, runs before every
+- **`openEachAction()`**, when the run declares it, runs before every
   action: a check the whole run shares (a role, a setting) goes there,
   and it can stop the request with `stopThisAction()`.
 - **The parameter** of an action is the part of the path the `pathForm`
@@ -1325,10 +1341,10 @@ class Actions extends Actionset {
 
 | Property | Holds |
 |---|---|
-| `$this->inputsRgst` | the inputs, defined by `input/<action>.json`: `obtainDefValue('name', default)`, `readLinesArray()` |
+| `$this->inputsRegr` | the inputs, defined by `input/<action>.json`: `getValueOrDflt('name', default)`, `readLinesArray()` |
 | `$this->modelStack` | the models of the run: `getModelObject('name')` |
-| `$this->accessRgst` | the access result: `loggedIn`, `userName`, `userRole`, `identity` (what the store says about the user), `appsName` for an application's call |
-| `$this->requestObj` | the request: `usedMethodFlag()`, `retrieveHeader()`, `retrieveCookie()`, `getUploadFiles()`, `retrieveInFile()`, `getServerValue()`, `retrieveClient()` |
+| `$this->accessRegr` | the access result: `loggedIn`, `userName`, `userRole`, `identity` (what the store says about the user), `appsName` for an application's call |
+| `$this->requestObj` | the request: `isSentByMethod()`, `getHeaderValue()`, `getCookieValue()`, `getUploadFiles()`, `getUploadEntry()`, `getServerValue()`, `getClientOfRqt()` |
 | `$this->respondObj` | the response, for its headers |
 | `$this->routingObj` | the router, for links to the declared routes |
 | `$this->runContext` | the `RunContext` all of these come from, read only |
@@ -1342,7 +1358,7 @@ through the request, and never decide an access (2.8).
 An action sets three properties:
 
 - **`statusCode`**: the status of the reply (200 when it sets none);
-- **`statusMssg`**: the message of an error status;
+- **`statusText`**: the message of an error status;
 - **`replyValue`**: the data of the reply, written in the preset's format:
   an array, a record, a list, a text, a number.
 
@@ -1352,13 +1368,13 @@ The actionset's helpers:
 |---|---|
 | `stopThisAction($code, $message, $output)` | stops the action at once, from itself or a helper, with that status |
 | `serveFileReply($path, $type)` | replies with a file on the server, in parts when `Range` asks |
-| `answerPageFlag($name, $values)` | replies with `pages/<name>.html`, its `%name%` placeholders filled and encoded |
+| `servePageReply($name, $values)` | replies with `pages/<name>.html`, its `%name%` placeholders filled and encoded |
 | `redirectClient($address, $code)` | redirects to a path of the site or an `http(s)` address |
-| `routLinkString($route, $values, $query)` | the link to a declared route |
-| `useReplyFormat($format)` | another format for this reply: `jsonData`, `yamlData`, `xmlNodes`, `csvTable`, `htmlView`, `rawBytes` |
+| `makeUrlOfRoute($route, $values, $query)` | the link to a declared route |
+| `setReplyFormat($format)` | another format for this reply: `jsonData`, `yamlData`, `xmlNodes`, `csvTable`, `htmlView`, `rawBytes` |
 | `getLoggerOfApp()` | the run's log, on its own channel |
 | `needsActionRle($role)` | stops the action with a 404 unless the user holds the role |
-| `holdsActionRle($role)` | tells whether the user holds the role |
+| `hasRoleOrAbove($role)` | tells whether the user holds the role |
 
 An exception the action doesn't catch is a 500, logged with its trace
 (4.7); in production, the client is told nothing more.
@@ -1390,10 +1406,10 @@ class Single extends DBRec {
 - **A record** (`DBRec`) names its table, its child tables and its parent
   tables. It's loaded by its key (`loadRecordList()`) or found by its
   fields (`findRecordList()`), with its relations loaded along; it's
-  filled (`bindFieldArray()`), saved (`insertOrUpdate()`) and removed
-  (`removeRecdFlag()`).
-- **A list** (`DBLst`) names its table. It's filtered (`replaceFilters()`),
-  its fields chosen (`pickReadFields()`), grouped (`setGroupFields()`),
+  filled (`setFieldsArray()`), saved (`insertOrUpdate()`) and removed
+  (`dropThisRecord()`).
+- **A list** (`DBLst`) names its table. It's filtered (`setListFilters()`),
+  its fields chosen (`setReadColumns()`), grouped (`setGroupFields()`),
   sorted (`setOrderFields()`), limited (`setLimitOffset()`), joined
   (`joinOtherTable()`), then read (`readRowsOfList()`).
 - A model can name another database than the default one.
@@ -1610,13 +1626,13 @@ config cache with `TBL_CACH`.
   each under its table's name with a capital first letter (`Events`); a
   parent, under its singular name (`Show`). A child can be declared with
   its sort order.
-- **Saving**: `bindFieldArray($values)` takes the values of the fields the
+- **Saving**: `setFieldsArray($values)` takes the values of the fields the
   table holds and leaves the others. `insertOrUpdate()` updates the row of
   the key, or inserts a new one, with the key given or made by the
   database. The key itself is never updated. It gives back the key, or
   `false`: as the database gave it for an update, as a number when the
   database numbered it, or as the application bound it otherwise.
-- **Removing**: `removeRecdFlag($children)` removes the record and the rows
+- **Removing**: `dropThisRecord($children)` removes the record and the rows
   of the child tables named in the call, in one transaction, and nothing
   else. The removal is traced on `runner`, with the user and address of
   the request. A database without transactions removes a record alone,
@@ -1628,14 +1644,14 @@ A list (`DBLst`) is bound to its table, set up, then read:
 
 | Method | Sets |
 |---|---|
-| `replaceFilters($filter)` | the filter (10.5), in place of the previous one |
-| `pickReadFields('a, b, count(*) as n')` | the fields read, and functions on them, with aliases |
+| `setListFilters($filter)` | the filter (10.5), in place of the previous one |
+| `setReadColumns('a, b, count(*) as n')` | the fields read, and functions on them, with aliases |
 | `setGroupFields($fields)` | the fields the rows are grouped by |
 | `setOrderFields($fields)` | the order; a field written `^name` is sorted descending |
 | `setLimitOffset($count)` | how many rows, from a count or `"count,offset"`; `DEF_ROWS` when the count isn't a number |
 | `joinOtherTable([table, field, field])` | one table joined (`LEFT JOIN`), SQL only |
-| `readRowsOfList()` | reads the rows; `flatItemsArray('field')` reads one field of each |
-| `attachChildren($table)` | attaches to each row read its rows in a child table |
+| `readRowsOfList()` | reads the rows; `listColumnVals('field')` reads one field of each |
+| `loadChildRecrd($table)` | attaches to each row read its rows in a child table |
 
 ### 10.5 Filters
 
@@ -1665,13 +1681,13 @@ refused.
 ### 10.6 Transactions
 
 The store of a database tells whether it has transactions
-(`canTransaction()`), and opens (`newTransaction()`), commits
-(`setTransaction()`) or cancels (`delTransaction()`) one. An action
+(`canTransaction()`), and opens (`addTransaction()`), commits
+(`setTransaction()`) or cancels (`dropWholeTrnsc()`) one. An action
 reaches them through the connection:
 
 ```php
 $dbStore = DBCon::linkNamedDbCon()->getStoreObject();
-$dbStore->newTransaction();
+$dbStore->addTransaction();
 // records saved and removed
 $dbStore->setTransaction();
 ```
@@ -1683,8 +1699,9 @@ The SQL types have transactions; MongoDB, as nyuRuns uses it, has none.
 An image, a sound or any file is stored in a field as a binary value:
 
 - it's written from a flux (`Data\Fluxd`) given as the field's value: a
-  file on the server, the request body, bytes in memory. It's read piece
-  by piece, never held whole;
+  file on the server, the request body, bytes in memory. Between the flux
+  and the database it's held whole, written in one piece, and read back
+  up to its limit (a larger one is refused);
 - it's read back as a flux, only when the field is named among the fields
   asked for: a read that names none leaves it out;
 - an action sends it as it is with the `rawBytes` reply format.
@@ -1832,11 +1849,11 @@ rather than one word squeezed down. Classes are the exception:
 
 | Element | Length | Example |
 |---|---|---|
-| method | 14 | `stopThisAction()`, `getModelObject()` |
+| method | 14 | `makeAccessCode()`, `getModelObject()` |
 | parameter | 12 | `$requiredRole`, `$appNameToRun` |
 | property | 10 | `$requestObj`, `$modelStack` |
-| local variable | 7 | `$endDate`, `$noteLst` |
-| loop variable | 6 | `$oneRow`, `$rowIdx` |
+| local variable | 8 | `$fileName`, `$rowsList` |
+| loop variable | 6, `one` or `nth` and the item | `$oneRow`, `$nthRow` |
 | constant | 9, in the form `XXXX_YYYY` | `KEYS_LIST`, `TYPE_LIST` |
 
 Exempt from the lengths:
@@ -1857,20 +1874,23 @@ Exempt from the lengths:
 - for now, the loop variables of 3 letters listed in
   `test/audit/looplabels.txt`.
 
-A name is built in this order, stopping at the first rule that gives the
-length:
+A name is built from slots, always in the same order, and `NAMERULES.md`
+holds the whole grammar. In short:
 
-1. whole words, if they fit exactly (`stopThisAction`);
-2. too long: shorten the verb before the noun, since what a name works on
-   matters more than what it does;
-3. shorten a noun only with its usual short form, by dropping inner vowels
-   (`Rqst`, `Mssg`, `Mthd`); letters are never swapped or replaced;
-4. too short: add a word that says more, the type of the value, or the
-   word of its owner (`fetchUserArray`, `$requiredRole`), never filler.
+- a method is a verb of a closed list, then what it acts on, then the kind
+  of what it gives when that isn't obvious (`readRouteList()`,
+  `makeAccessCode()`);
+- a parameter is its role, its subject and its kind (`$requiredRole`,
+  `$givenUserName`), a property its subject and its kind (`$accessConf`),
+  a local one or two plain words (`$fileName`, `$response`);
+- a yes or no is always a question: `is`, `has`, `can`, `needs` or `was`,
+  then the subject (`hasWrongSecret()`, `$isLoggedIn`);
+- each word is written whole when it fits, or in its one short writing of
+  3, 4 or 5 letters from the glossary (`Rqst`, `Mssg`, `Modl`); the
+  length is reached by a longer writing of a slot, never by an extra word.
 
-A name says the role first, then what the value is (`List`, `Arr`, `Obj`,
-`Text`, `Flag`, `Numb`…). A name already chosen for one concept is reused
-for it everywhere (`$requestObj` is the request in every class).
+One concept has one word everywhere (`$requestObj` is the request in every
+class), and one word has one meaning.
 
 The same rule holds beyond the code:
 
@@ -2016,7 +2036,7 @@ finishChecking();
 - The fixtures (configurations, routes, pages, a test run named `Probe`,
   a users file, documents) live in `test/fixtures`.
 - A test that reads the logs plugs in its own folder
-  (`Logger::plugLogsConfig()`), and unplugs it at the end.
+  (`Logger::loadLogsConfig()`), and unplugs it at the end.
 
 ### 13.5 Before a release
 

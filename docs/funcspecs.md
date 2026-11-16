@@ -123,7 +123,7 @@ document.
 | Build and deploy the back end of a whole application, as RESTful services | Met | resources reached by their path, methods that say what's done, statuses that say how it went; a command line installs, checks and ships the project |
 | Handle the whole HTTP request, so developers write less | Met | routing, access, inputs, the action, the reply and its errors, in one sequence (5.1) |
 | Data-model-driven components (MDD) | Met | an application works through models of its data, records and lists, never through queries |
-| CRUD operations out of the box | Partly met | every data source gets its CRUDL operations through the models, but an application still writes a short action for each. Serving a table through configuration alone isn't in 1.0: generating those actions is the job of nyuTron's scaffolding |
+| CRUD operations out of the box | Partly met | every data source gets its CRUDL operations through the models, and `makerun` writes the actions of an SQL table's Run, so none is written by hand. Serving a table through configuration alone isn't in 1.0 |
 | Other data sources than databases: XML, JSON, INI and text files | Partly met | files in those formats, and many more, are read and written as documents by an action. Using them as a configured source of inputs is left for 1.1 |
 | Routing of every request, with fallbacks | Met | routes are found from the path, or declared by the site or by each run; a declared route can also redirect, or serve a file, a folder or a page; a site can have its own error pages |
 | Access control (ACL) and tokens | Met | ranked roles, asked for by route or by action; signed tokens, sessions, API keys, client certificates; several user stores |
@@ -158,8 +158,8 @@ Version 1.0 covers them:
 
 The parts of the vision that 1.0 doesn't fully meet were set aside to
 finish the version sooner, not abandoned. Files as configured sources and
-sockets come with version 1.1, and generating CRUDL actions comes with
-nyuTron. The cache for data replies is the only need with no version
+sockets come with version 1.1, and generating CRUDL actions is already in
+1.0 (`makerun`), with nyuTron's visual wizard to come around it. The cache for data replies is the only need with no version
 planned yet. The full list of what's left for later is in the
 [Technical Specifications, 1.5 and 1.6](techspecs.md#15-what-is-left-for-later).
 
@@ -692,7 +692,8 @@ authenticator scans.
 
 Every file a request brings is traced, whether it was received or failed,
 and whether the request was allowed or not. A body bigger than the
-service accepts is refused before it's read (413).
+service accepts is refused (413): one announced bigger isn't read at all,
+and one found bigger is read no further than the limit.
 
 ### 5.10 Sending mail
 
@@ -1015,7 +1016,7 @@ naming) are in the [Technical Specifications, chapters 2 and
 3. **Plan the roles**: `standard` for users, `advanced` for staff,
    `managers` for those who manage the users. Give each route the minimum role it
    needs, in the profile. An action that needs more asks for it itself,
-   and a whole run can check it once, in `setupForAction()`.
+   and a whole run can check it once, in `openEachAction()`.
 4. **Let the front end hide what a user can't reach**: the service
    answers 404 for a role not held, just as for a URL that doesn't exist,
    so the front end shouldn't offer it.
@@ -1117,7 +1118,7 @@ The replies of the `Auth` run:
 | | `Account not active` | the account behind a session or token was locked in the meantime |
 | | `Invalid activation`, `Invalid code` | a wrong name or code at activation or recovery, or an expired code |
 | | `Invalid API key`, `No API key provided`, `Invalid app key`, `Not logged in`, `No active session`, `Missing Bearer Authorization header`, … | the credential the profile asks for is missing or wrong |
-| **403** | `Forbidden` | given by an action itself (`stopThisAction(403, …)`); the framework never answers it: what a user, an application key or a command-line call can't reach is a 404 |
+| **403** | `Sign in with the password: a device cannot change its account` | a device token on an action that changes its user's account (`needsPassLogin()`); an action can also answer one itself (`stopThisAction(403, …)`). What a user, an application key or a command-line call can't reach is a 404 |
 | **404** | `Not Found` | nothing answers the URL; the application, action, file or page isn't there; a run with its own routes is called by its plain path; the role isn't held (by a user, an application key or a command-line call); an application key reaches a route it doesn't list; a feature is switched off (sign-ups, forgotten passwords) |
 | | `User not found` | the `Users` run is asked for a user that doesn't exist |
 | **405** | `Method Not Allowed` | the route or action doesn't take that method; the `Allow` header lists the ones it does |

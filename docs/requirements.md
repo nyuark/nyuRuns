@@ -90,11 +90,11 @@ Each aim leads to objectives that can be checked:
 |---|---|---|---|
 | O1 | An application declares its actions, their inputs and their URLs; it has no code that reads a request, checks access or writes a reply | 1 | Met |
 | O2 | Every data source gets create, read, update, delete and list, through the same models | 3 | Met for databases |
-| O3 | A table is served by settings alone, with no action written for it | 1, 3 | Moved to nyuTron (its scaffolding writes those actions) |
+| O3 | A table is served by settings alone, with no action written for it | 1, 3 | Met another way: `makerun` writes the Run of a table (routes, actions, inputs), so none is written by hand; nyuTron puts a visual wizard around it |
 | O4 | Files are a data source just like databases, set up in the settings | 3 | Version 1.1; for now, files are read and written as documents by an action |
 | O5 | A first install takes one command and needs no database | 2 | Met |
 | O6 | A service moves from a users file to a database, from one database to several, and from one application to several working together, without rewriting its code | 2 | Met |
-| O7 | A request costs no more CPU than with the usual micro-frameworks, and well below the full-stack ones | 4 | Met (chapter 7), measured before the 9 November changes |
+| O7 | A request costs no more CPU than with the usual micro-frameworks, and well below the full-stack ones | 4 | Met (chapter 7), measured on 7 November, before the Run lifecycle and routes, the security revision and the renaming; not measured since |
 | O8 | Signing in, roles, limits on attempts, two-factor codes, signed tokens and the account life cycle come with the framework, with no library to add | 5 | Met |
 | O9 | Documents, images, sounds and mail are read, written and sent by the framework itself | 5 | Met |
 | O10 | A project is installed, configured, checked, tested and shipped from one command line | 5 | Met |
@@ -122,9 +122,9 @@ An application is described by its data models, and works through them.
   and relations are worked out from the table and its naming.
 - Changing the database, or the kind of database, leaves the applications
   untouched, within what that kind of database can do.
-- The tools around the framework (nyuTron) build on the models: the
-  scaffolding writes a model's actions, so a table can be served without
-  hand-written code.
+- `makerun` builds on the models: it writes the actions of a table's Run,
+  so a table can be served without hand-written code. nyuTron, the tools
+  around the framework, puts a visual wizard around it.
 
 ### 3.2 KISS: keep it simple
 
@@ -299,7 +299,7 @@ tools around nyuRuns; **dropped**: abandoned.
 | Binary values, read and sent piece by piece | 1.0 |
 | Identifiers that travel with a record (UUID version 7) | 1.0 |
 | Several joins in one list | 1.1 |
-| A table served by settings alone | nyuTron (scaffolding) |
+| A table served with no hand-written code (`makerun`) | 1.0 |
 
 ### 5.6 Documents and media
 
@@ -329,7 +329,8 @@ tools around nyuRuns; **dropped**: abandoned.
 | Users, devices and application keys managed | 1.0 |
 | A copy of the project built for each environment | 1.0 |
 | The test suite and the audit of the conventions | 1.0 |
-| Scaffolding of models and code | nyuTron |
+| A Run written from a table: routes, actions, inputs (`makerun`) | 1.0 |
+| A visual wizard around `makerun` | nyuTron |
 | An installation wizard | nyuTron |
 | A manager of advanced settings | nyuTron |
 | Ready-made data kits: members, clients, orders, tasks, projects | nyuTron |
@@ -348,7 +349,7 @@ section that explains how: **TS** for the
 | # | Requirement | Status | Met in |
 |---|---|---|---|
 | R-01 | Every request goes through one entry, in one sequence: route, access, inputs, action, reply | 1.0 | TS 4 |
-| R-02 | A body larger than the size set, or holding more parts than set, is refused (413) before it is read | 1.0 | TS 4.2 |
+| R-02 | A body larger than the size set, or holding more parts than set, is refused (413): a body announced larger is not read, and one found larger is read no further than the limit | 1.0 | TS 4.2 |
 | R-03 | An action receives only the inputs its definition lists, each in its format; a required one missing refuses the request (400) before the action runs | 1.0 | TS 6.9, FS 5.8 |
 | R-04 | Server and client values are never inputs; what a client tells of itself never grants access | 1.0 | TS 9.2 |
 | R-05 | A value from a request used in a filter is compared as it is, never read as a pattern | 1.0 | TS 10.5 |
@@ -361,7 +362,7 @@ section that explains how: **TS** for the
 |---|---|---|---|
 | R-08 | A route is found from the path, or from the routes the site or each run declares (a run's mounted where the profile says); a declared route names an action for each method | 1.0 | TS 4.3 |
 | R-09 | A declared route redirects, or serves a file, a folder or a page; a file never leaves its folder | 1.0 | TS 6.8, TS 9.3 |
-| R-10 | Whatever a client can't reach gets the same reply, 404, whether it doesn't exist or can't be reached | 1.0 | TS 4.5 |
+| R-10 | Whatever a client can't reach gets the same reply, 404, whether it doesn't exist or can't be reached; the one 403 left is a device token on an action that changes its user's account | 1.0 | TS 4.5 |
 | R-11 | A reply is written in the format of the profile, or of the action: JSON, YAML, XML, CSV, HTML, raw | 1.0 | TS 4.6 |
 | R-12 | An error is written in the format of the reply, logged, and never detailed in production | 1.0 | TS 4.7 |
 | R-13 | Every reply forbids content sniffing; other sites call from a browser only from the origins listed | 1.0 | TS 9.3 |
@@ -407,10 +408,10 @@ section that explains how: **TS** for the
 | R-38 | The databases are MySQL, MariaDB, PostgreSQL, SQLite and MongoDB, several at once | 1.0 | TS 10.1 |
 | R-39 | A filter is written the same way for every kind of database | 1.0 | TS 10.5 |
 | R-40 | A record is removed with the children named, in one transaction, or not at all | 1.0 | TS 10.3 |
-| R-41 | A binary value is written and read piece by piece, never held whole | 1.0 | TS 10.7 |
+| R-41 | A binary value is sent to the client, and written to a file, piece by piece; between the flux and the database, it is held whole, up to its limit | 1.0 | TS 10.7 |
 | R-42 | A saved record's key has the same type it has when read back: a key the database numbered is a number | 1.0 | TS 10.3 |
 | R-43 | A list joins several tables | 1.1 | |
-| R-44 | A table is served by settings alone, its actions written by the scaffolding | nyuTron | |
+| R-44 | A table is served with no hand-written code: `makerun` writes its Run from the table | 1.0 | TS 7.10 |
 
 ### 6.6 Documents, media and mail
 
@@ -460,14 +461,15 @@ must not pay for that completeness in the cost of each request.
 | P-03 | It sends the database no more statements than they do for the same work | Met: one to read a record, five for a record with its relations in the benchmark's complex case |
 | P-04 | A request loads only what it uses: no connection unless data is read, no model unless an action asks for it | Met |
 | P-05 | What the framework reads on every request (settings, routes, tables) is read once in production, then from a cache | Met: `CNF_CACH`, `TBL_CACH`, set by the production copy |
-| P-06 | Large data is read and sent piece by piece, never held whole in memory | Met for binary values and files sent; a request body is held whole, up to `REQ_SIZE` |
+| P-06 | Large data is read and sent piece by piece, never held whole in memory | Partly met: files and binary values are sent piece by piece; a request body is held whole, up to `REQ_SIZE`, and a binary value up to its limit, between the flux and the database |
 | P-07 | On the reference server (7.3), with 50 clients at once, the benchmark's light reads (a list, a record, a user's projects) handle 800 requests per second or more, with the slowest 1% answered in under 150 ms and none failed | Not measured yet |
 | P-08 | On the reference server, with 50 clients at once, the benchmark's writes (a record created, a task, a comment) handle 500 requests per second or more, under the same conditions | Not measured yet |
 | P-09 | An API request uses at most 4 MB of memory at its peak | Not measured yet |
 
 The relative goals (P-01, P-02) apply on any machine. The 1.0 figures come
 from the run of 7 November 2026, on one machine, one request at a time,
-before the 9 November changes. The method, the scenario-by-scenario
+before the Run lifecycle and routes, the security revision and the
+renaming, and haven't been measured since. The method, the scenario-by-scenario
 results and their limits are in the
 [Functional Specifications, chapter 7](funcspecs.md#7-performance-results).
 
@@ -537,7 +539,7 @@ failed for lack of connections.
 | 0.9 | code complete: renamed devices table, RS256 tokens, the profile format, the copy built for each environment, the release settings |
 | **1.0** | the first public release: the documentation, the licence, the performance tuning, codes by mail, tokens bound to an issuer and an audience, each run's own routes, the security revision, and the final test pass |
 | 1.1 | what chapters 5 and 6 leave for it: SSO and LDAP, a second factor by SMS or approved from the phone, certificates through a proxy, limits by route, other input sources, sockets, several joins, rich text and code, handwriting, sound mixing |
-| nyuTron (codename) | a separate project of tools around nyuRuns: the scaffolding of models and code, an installation wizard, a manager of advanced settings, ready-made data kits |
+| nyuTron (codename) | a separate project of tools around nyuRuns: a visual wizard around `makerun`, an installation wizard, a manager of advanced settings, ready-made data kits |
 
 Every version is closed by a full pass of the test suite, on the
 supported PHP releases and database servers.
@@ -546,8 +548,9 @@ supported PHP releases and database servers.
 
 - **CRUDI** is now **CRUDL**: the same operations, with the list named for
   what it is.
-- **A table served by settings alone** is written by nyuTron's
-  scaffolding, rather than read from settings by the framework.
+- **A table served by settings alone** is generated instead: `makerun`
+  writes its Run from the table, rather than the framework reading it from
+  settings.
 - **Files as data sources**, **sockets** and **a cache for data replies**
   aren't in 1.0. The first two come with version 1.1, and the last isn't
   planned yet.

@@ -23,8 +23,9 @@ part of the documentation, or a new feature.
    extensions and servers the optional ones need.
 
 2. **The conventions of the code.** Names have fixed lengths (methods 14
-   characters, parameters 12, properties 10, local variables 7, constants 9
-   as `XXXX_YYYY`), types are
+   characters, parameters 12, properties 10, local variables 8, loop
+   variables 6, constants 9 as `XXXX_YYYY`), built as `NAMERULES.md` says;
+   types are
    declared and written capitalised (`String`, `Array`, `Bool`), and every
    public method has its docblock. The audit group checks them:
 

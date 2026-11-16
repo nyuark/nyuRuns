@@ -605,29 +605,29 @@ class Actions extends Actionset {
 	 * input, 'limit' of them at most.
 	 */
 	public function index(): Void {
-		$noteLst = $this->modelStack->getModelObject('listing');
-		$nameTxt = strval( $this->inputsRgst->obtainDefValue('name', '') );
-		if( $nameTxt!='' ){
-			$noteLst->replaceFilters( Array('noteName~'=>'*'.$nameTxt.'*') );
+		$listModl = $this->modelStack->getModelObject('listing');
+		$nameText = strval( $this->inputsRegr->getValueOrDflt('name', '') );
+		if( $nameText!='' ){
+			$listModl->setListFilters( Array('noteName~'=>'*'.$nameText.'*') );
 		}
-		$noteLst->setOrderFields('^id_note');
-		$noteLst->setLimitOffset( $this->inputsRgst->obtainDefValue('limit', 20) );
-		$rowList = $noteLst->readRowsOfList();
-		if( $rowList===false ){
+		$listModl->setOrderFields('^id_note');
+		$listModl->setLimitOffset( $this->inputsRegr->getValueOrDflt('limit', 20) );
+		$rowsList = $listModl->readRowsOfList();
+		if( $rowsList===false ){
 			$this->stopThisAction(500, 'Notes not read');
 		}
-		$this->statusCode = empty($rowList) ? 204 : 200;
-		$this->replyValue = empty($rowList) ? null : $rowList;
+		$this->statusCode = empty($rowsList) ? 204 : 200;
+		$this->replyValue = empty($rowsList) ? null : $rowsList;
 	}
 
 	/**
 	 * Shows one note.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function view( String $idOfNoteText ): Void {
+	public function view( String $recordIdText ): Void {
 		$this->statusCode = 200;
-		$this->replyValue = $this->loadNote($idOfNoteText)->loadRecordList($idOfNoteText);
+		$this->replyValue = $this->loadNote($recordIdText)->loadRecordList($recordIdText);
 	}
 
 	/**
@@ -635,49 +635,49 @@ class Actions extends Actionset {
 	 * user signed in.
 	 */
 	public function create(): Void {
-		$noteRec = $this->modelStack->getModelObject('single');
-		$noteRec->bindFieldArray( Array(
-			'noteName'=>$this->inputsRgst->obtainDefValue('name'),
-			'noteText'=>$this->inputsRgst->obtainDefValue('text', ''),
-			'noteUser'=>strval($this->accessRgst->readValueByKey('userName'))
+		$rcrdModl = $this->modelStack->getModelObject('single');
+		$rcrdModl->setFieldsArray( Array(
+			'noteName'=>$this->inputsRegr->getValueOrDflt('name'),
+			'noteText'=>$this->inputsRegr->getValueOrDflt('text', ''),
+			'noteUser'=>strval($this->accessRegr->readValueByKey('userName'))
 		) );
-		$noteKey = $noteRec->insertOrUpdate();
-		if( $noteKey===false ){
+		$savedKey = $rcrdModl->insertOrUpdate();
+		if( $savedKey===false ){
 			$this->stopThisAction(500, 'Note not saved');
 		}
 		$this->statusCode = 201;
-		$this->replyValue = Array('id_note'=>$noteKey);
+		$this->replyValue = Array('id_note'=>$savedKey);
 	}
 
 	/**
 	 * Changes the name or the text of a note, those of the inputs given.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function update( String $idOfNoteText ): Void {
-		$noteRec = $this->loadNote($idOfNoteText);
-		$chngArr = Array();
-		foreach( Array('name'=>'noteName', 'text'=>'noteText') as $inpNme => $fldNme ){
-			$sentVal = $this->inputsRgst->obtainDefValue($inpNme);
-			if( $sentVal!==null && $sentVal!=='' ){
-				$chngArr[$fldNme] = $sentVal;
+	public function update( String $recordIdText ): Void {
+		$rcrdModl = $this->loadNote($recordIdText);
+		$sentVals = Array();
+		foreach( Array('name'=>'noteName', 'text'=>'noteText') as $oneKey => $oneFld ){
+			$sentValu = $this->inputsRegr->getValueOrDflt($oneKey);
+			if( $sentValu!==null && $sentValu!=='' ){
+				$sentVals[$oneFld] = $sentValu;
 			}
 		}
-		$noteRec->bindFieldArray($chngArr);
-		if( $noteRec->insertOrUpdate()===false ){
+		$rcrdModl->setFieldsArray($sentVals);
+		if( $rcrdModl->insertOrUpdate()===false ){
 			$this->stopThisAction(500, 'Note not saved');
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $noteRec->loadRecordList($idOfNoteText);
+		$this->replyValue = $rcrdModl->loadRecordList($recordIdText);
 	}
 
 	/**
 	 * Removes a note.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function remove( String $idOfNoteText ): Void {
-		if( !$this->loadNote($idOfNoteText)->removeRecdFlag() ){
+	public function remove( String $recordIdText ): Void {
+		if( !$this->loadNote($recordIdText)->dropThisRecord() ){
 			$this->stopThisAction(500, 'Note not removed');
 		}
 		$this->statusCode = 204;
@@ -686,25 +686,25 @@ class Actions extends Actionset {
 	/**
 	 * Shows a note as a page, for a browser.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function card( String $idOfNoteText ): Void {
-		$noteArr = $this->loadNote($idOfNoteText)->loadRecordList($idOfNoteText);
-		$this->answerPageFlag( 'note', Array('name'=>$noteArr['noteName'], 'text'=>$noteArr['noteText'], 'user'=>$noteArr['noteUser'], 'date'=>$noteArr['madeDate']) );
+	public function card( String $recordIdText ): Void {
+		$rcrdVals = $this->loadNote($recordIdText)->loadRecordList($recordIdText);
+		$this->servePageReply( 'note', Array('name'=>$rcrdVals['noteName'], 'text'=>$rcrdVals['noteText'], 'user'=>$rcrdVals['noteUser'], 'date'=>$rcrdVals['madeDate']) );
 	}
 
 	/**
 	 * Gives the record of a note, or ends the action with a 404.
 	 *
-	 * @param String $idOfNoteText Identifier of the note.
+	 * @param String $recordIdText Identifier of the note.
 	 * @return Object The record, loaded.
 	 */
-	protected function loadNote( String $idOfNoteText ): Object {
-		$noteRec = $this->modelStack->getModelObject('single');
-		if( empty($noteRec->loadRecordList($idOfNoteText)) ){
+	protected function loadNote( String $recordIdText ): Object {
+		$rcrdModl = $this->modelStack->getModelObject('single');
+		if( empty($rcrdModl->loadRecordList($recordIdText)) ){
 			$this->stopThisAction(404, 'Not Found');
 		}
-		return $noteRec;
+		return $rcrdModl;
 	}
 }
 ```
@@ -720,10 +720,11 @@ A few things worth noticing:
   it.
 - `noteName~` with `*` on each side asks for a match. A plain value would
   be compared exactly.
-- Names follow the project's conventions: 7 characters for a local
-  variable, 12 for a parameter, 6 for a loop variable. `idOfNoteText`
-  is named the way the `Shows` run names its own. The test audit checks
-  them in your runs too (5.9).
+- Names follow the project's conventions: 8 characters for a local
+  variable, 12 for a parameter, 6 for a loop variable (`one` or `nth` and
+  the item: `oneFld`). `recordIdText` and `rowsList` are the names the
+  `Shows` example uses for the same things, and `listModl`, `rcrdModl` say
+  they hold models. The audit checks your runs too (5.9).
 
 ### 5.4 The inputs
 
@@ -844,7 +845,7 @@ reach.
 </html>
 ```
 
-The `card` action fills each `%name%` placeholder through `answerPageFlag()`,
+The `card` action fills each `%name%` placeholder through `servePageReply()`,
 and every value is HTML-encoded. You removed note 1 at the end of 5.7, so
 create a new one first, then open `http://localhost:8000/note/<its number>`
 in a browser. No sign-in needed, since that route is open. A note named
@@ -855,7 +856,7 @@ once and only once.
 
 `test/data/NotesTest.php` runs the actions against a database of its own.
 A run is given a `RunContext`, what it needs for one request, and
-`runAskedAction()` runs the action:
+`treatAskedActn()` runs the action:
 
 ```php
 <?php
@@ -875,27 +876,27 @@ use nyu\App\ModelStack;
 use nyu\App\RunContext;
 use nyu\Tools\Registry;
 
-$basePth = inTemporaryDir('notes.sqlite');
-if( is_file($basePth) ){
-	unlink($basePth);
+$basePath = inTemporaryDir('notes.sqlite');
+if( is_file($basePath) ){
+	unlink($basePath);
 }
-(new PDO('sqlite:'.$basePth))->exec( strval(file_get_contents(RUN_DIR.DS.'Notes'.DS.'notes.sql')) );
-switchToSqlite($basePth);
+(new PDO('sqlite:'.$basePath))->exec( strval(file_get_contents(RUN_DIR.DS.'Notes'.DS.'notes.sql')) );
+switchToSqlite($basePath);
 require RUN_DIR.DS.'Notes'.DS.'Actions.php';
 
 /**
  * Runs an action of Notes, as a user signed in.
  *
- * @param String  $actionName Action to run.
- * @param ?String $idOfNoteText The identifier of the note, when the action takes one.
- * @param Array   $inputArray Inputs of the action.
+ * @param String  $actionToTest Action to run.
+ * @param ?String $recordIdText The identifier of the note, when the action takes one.
+ * @param Array   $inputsToSend Inputs of the action.
  * @return Array The status and the output of the action.
  */
-function noteCall( String $actionName, ?String $idOfNoteText=null, Array $inputArray=Array() ): Array {
-	$runCntxt = new RunContext( $actionName, $idOfNoteText, new Registry($inputArray), new Registry(Array('loggedIn'=>true, 'userName'=>'tester')), null, null, null, new ModelStack('Notes'), 'Notes', RUN_DIR.DS.'Notes' );
-	$actnSet = new nyu\Runs\Notes\Actions($runCntxt);
-	$actnSet->runAskedAction();
-	return Array($actnSet->statusCode, $actnSet->replyValue);
+function noteCall( String $actionToTest, ?String $recordIdText=null, Array $inputsToSend=Array() ): Array {
+	$runCntxt = new RunContext( $actionToTest, $recordIdText, new Registry($inputsToSend), new Registry(Array('loggedIn'=>true, 'userName'=>'tester')), null, null, null, new ModelStack('Notes'), 'Notes', RUN_DIR.DS.'Notes' );
+	$actnInst = new nyu\Runs\Notes\Actions($runCntxt);
+	$actnInst->treatAskedActn();
+	return Array($actnInst->statusCode, $actnInst->replyValue);
 }
 
 checkIdentical('an empty list', noteCall('index'), Array(204, null));
@@ -1021,7 +1022,7 @@ one holds. The ones you'll use most in a run are:
 
 | Class | For |
 |---|---|
-| `nyu\App\Actionset` | what an action is given, and its helpers (`answerPageFlag()`, `stopThisAction()`, `needsActionRle()`, …) |
+| `nyu\App\Actionset` | what an action is given, and its helpers (`servePageReply()`, `stopThisAction()`, `needsActionRle()`, …) |
 | `nyu\Data\DBRec`, `nyu\Data\DBLst` | a record and a list of a table |
 | `nyu\Data\DBStore\Filter` | how a filter is written |
 | `nyu\Tools\Variable` | the formats of the inputs (`OutText`, `Integer`, `EmlAddr`, …) |

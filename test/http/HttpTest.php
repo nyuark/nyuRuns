@@ -4,10 +4,8 @@
 // bodies, served by PHP's built-in server through test/lib/httpRouter.php
 // on the sample SQLite database.
 //
-// These requests never go through the project's own configuration: the test
-// router gives each the config files of a fixture, test/fixtures/conf when it
-// names none. That fixture names the project's log folder (temp/logs), so they
-// write to its log files like any other request.
+// These requests go through the project's own configuration, so they write
+// to the log files of the folder configured in conf/system.ini like any other request.
 //
 // The same checks can be run through another web server, such as Apache,
 // that serves test/lib/httpRouter.php for every address: NYU_TEST_HTTP_URL
@@ -53,27 +51,27 @@ function httpQuery( String $httpMethod, String $urlAddress, Array $headersArr=Ar
 }
 
 /**
- * Reads the log file of a channel, in the folder test/fixtures/conf/system.ini
- * names from the project root (see Setup\Loader::logConfigArray). The other
- * fixture configurations name the same one.
+ * Reads the log file of a channel, in the folder conf/system.ini names
+ * from the project root (see Setup\Loader::logConfigArray). The fixture
+ * configurations name the same one.
  *
  * @param String $loggerChan Channel name: 'error', 'access', 'runner' or an application.
  * @return String The contents of the file, empty when there is none.
  */
 function readsLogs( String $loggerChan ): String {
-	$sysConf = @parse_ini_file(TST_DIR.DS.'fixtures'.DS.'conf'.DS.'system.ini') ?: Array();
+	$sysConf = @parse_ini_file(TOP_DIR.DS.'conf'.DS.'system.ini') ?: Array();
 	$fldName = trim( strval($sysConf['LOG_PATH'] ?? ''), '/\\ ' );
 	clearstatcache();
 	return strval( @file_get_contents(TOP_DIR.DS.($fldName!='' ? $fldName : 'temp'.DS.'logs').DS.$loggerChan.'.log') );
 }
 
 /**
- * Removes the counters of the local addresses kept under the usual
- * configuration of the tests (see Access\Limiter): the requests that go through it
+ * Removes the counters of the local addresses kept under the project's own
+ * configuration (see Access\Limiter): the requests that go through it
  * present wrong credentials, which would add up from one run to the next.
  */
 function dropLocal(): Void {
-	$axsConf = json_decode( strval(@file_get_contents(TST_DIR.DS.'fixtures'.DS.'conf'.DS.'access.json')), true );
+	$axsConf = json_decode( strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true );
 	$limiter = new nyu\Access\Limiter( is_array($axsConf['tryLimit'] ?? null) ? $axsConf['tryLimit'] : Array() );
 	$keyMthd = new ReflectionMethod($limiter, 'getAdrCountKey');
 	$pthMthd = new ReflectionMethod($limiter, 'getKeyFilePath');
@@ -847,9 +845,9 @@ if( !$isReady ){
 	checkIdentical('PUT body with a lower-case content-type header', $replyAr['code'], 401);
 
 	// Misbehaving actions, from the fixture applications in test/fixtures/runs.
-	// What a client sees of a warning depends on ERR_SHOW in test/fixtures/conf/system.ini.
+	// What a client sees of a warning depends on ERR_SHOW in conf/system.ini.
 	$fixHead = Array('X-Test-Runs'=>'1');
-	$sysConf = @parse_ini_file(TST_DIR.DS.'fixtures'.DS.'conf'.DS.'system.ini');
+	$sysConf = @parse_ini_file(TOP_DIR.DS.'conf'.DS.'system.ini');
 	$errShow = !empty($sysConf['ERR_SHOW']);
 	$warnPtn = '/^E_USER_WARNING: probe warning in .*Actions\.php on line \d+$/';
 

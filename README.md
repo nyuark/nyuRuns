@@ -99,15 +99,15 @@ class Actions extends Actionset {
 	/**
 	 * Shows one note.
 	 *
-	 * @param String $idOfNoteText Identifier of the note, from the path.
+	 * @param String $recordIdText Identifier of the note, from the path.
 	 */
-	public function view( String $idOfNoteText ): Void {
-		$noteArr = $this->modelStack->getModelObject('single')->loadRecordList($idOfNoteText);
-		if( empty($noteArr) ){
+	public function view( String $recordIdText ): Void {
+		$rcrdVals = $this->modelStack->getModelObject('single')->loadRecordList($recordIdText);
+		if( empty($rcrdVals) ){
 			$this->stopThisAction(404, 'Not Found');
 		}
 		$this->statusCode = 200;
-		$this->replyValue = $noteArr;
+		$this->replyValue = $rcrdVals;
 	}
 }
 ```

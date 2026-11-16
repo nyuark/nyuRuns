@@ -8,15 +8,14 @@
 // that the shared database connection is opened beforehand on the sample
 // SQLite file named by the NYU_TEST_DB environment variable, and that a
 // request naming no X-Test-Auth, on the default preset or on mapping, is
-// served open ("required": false): both presets are closed. The config
-// files are always those of a fixture, never the project's own conf.
+// served open ("required": false): both presets are closed.
 //
 // X-Test-* request headers switch on preset overloads, through the Runner's
 // own $overLoaded argument:
 //   X-Test-Auth: <carrier code>      access control required, with that carrier
 //   X-Test-Store: <store code>       credential check of that access control (regdKeys by default)
 //   X-Test-Confkey: <block name>     access.json block of that access control (none by default)
-//   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> (test/fixtures/conf by default)
+//   X-Test-Conf: <folder>            config files read from test/fixtures/<folder> instead of conf
 //   X-Test-Public: <app/action,...>  public routes of that access control (with X-Test-Auth)
 //   X-Test-Signin: <path>            sign-in route of that access control (with X-Test-Auth)
 //   X-Test-Roles: <route=role,...>   roles the routes of that access control ask for (with X-Test-Auth)
@@ -69,8 +68,6 @@ if( isset($_SERVER['HTTP_X_TEST_AUTH']) ){
 		}
 	}
 }
-// The config files of the project are never read : a request naming no folder gets those of test/fixtures/conf
-$overArr['settings']['confPath'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.'conf';
 if( isset($_SERVER['HTTP_X_TEST_CONF']) && preg_match('/^\w+$/', $_SERVER['HTTP_X_TEST_CONF']) ){
 	$overArr['settings']['confPath'] = 'test'.DIRECTORY_SEPARATOR.'fixtures'.DIRECTORY_SEPARATOR.$_SERVER['HTTP_X_TEST_CONF'];
 }
