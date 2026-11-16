@@ -1,7 +1,7 @@
 -- Native userbase (Access\Auth\Native), SQLite.
 -- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
 -- systemName is matched with case: 'Anna' and 'anna' are two users.
--- createDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
+-- Every date is given by the clock of PHP, createDate too; its default only serves a row written by hand, in the time of the database, in UTC.
 
 CREATE TABLE `users` (
 	`id_user`    INTEGER PRIMARY KEY,

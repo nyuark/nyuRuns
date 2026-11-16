@@ -1390,7 +1390,7 @@ class Deploy extends Command{
 		// The rules of the userbase are those of its block, except the length : the passwords made here are long enough for any
 		$natvAuth = new Native( Array('minChars'=>1) + $configValues );
 		$passList = Array();
-		$addSttmt = 'INSERT INTO '.$qotdTble.' ('.$dtbsHndr->quoteFieldName('systemName').', '.$dtbsHndr->quoteFieldName('passwdHash').', '.$dtbsHndr->quoteFieldName('accessRole').', '.$dtbsHndr->quoteFieldName('userStatus').") VALUES (?, '!', ?, 'approved');";
+		$addSttmt = 'INSERT INTO '.$qotdTble.' ('.$dtbsHndr->quoteFieldName('systemName').', '.$dtbsHndr->quoteFieldName('passwdHash').', '.$dtbsHndr->quoteFieldName('accessRole').', '.$dtbsHndr->quoteFieldName('userStatus').', '.$dtbsHndr->quoteFieldName('createDate').") VALUES (?, '!', ?, 'approved', '".date('Y-m-d H:i:s')."');";
 		$acctList = $this->promptAccounts();
 		$dtbsHndr->addTransaction();
 		foreach( $acctList as $oneNme => $oneRle ){

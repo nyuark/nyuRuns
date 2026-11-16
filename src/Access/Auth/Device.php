@@ -131,10 +131,10 @@ class Device implements Handler{
 		}
 		try{
 			$dtbsHndr = $this->openUserBaseDb();
-			$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'user_id') );
+			$fieldLst = array_map( Array($dtbsHndr, 'quoteFieldName'), Array('deviceName', 'deviceRole', 'deviceTops', 'bearerHash', 'createDate', 'user_id') );
 			$newToken = bin2hex(random_bytes(32));
 			$addSttmt = 'INSERT INTO '.$dtbsHndr->quoteFieldName($this->deviceTble).' ('.implode(', ', $fieldLst).')'
-				.' SELECT ?, ?, ?, ?, '.$dtbsHndr->quoteFieldName('id_user').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
+				.' SELECT ?, ?, ?, ?, \''.date('Y-m-d H:i:s').'\', '.$dtbsHndr->quoteFieldName('id_user').' FROM '.$dtbsHndr->quoteFieldName($this->usersTable)
 				.' WHERE '.$dtbsHndr->quoteFieldName('systemName').'=? AND '.$dtbsHndr->quoteFieldName('userStatus')."='approved';";
 			$newArray = Array($userDvceName, $deviceRleTxt, $roleTopsText, hash('sha256', $newToken), $namedUserTxt);
 			return ( $dtbsHndr->sendBuiltQuery($addSttmt, true, $newArray) && $dtbsHndr->countLastWrite()>0 ) ? $newToken : false;

@@ -22,6 +22,9 @@ use nyu\Access\Auth\Native;
 use nyu\Access\Auth\UserBase;
 use nyu\Tools\Logger;
 
+// The dates of the users are those of PHP's clock, whatever the database's: PHP is given a zone far from UTC, which SQLite writes in
+date_default_timezone_set('Pacific/Kiritimati');
+
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('userbase.sqlite'));
 $sqlLink->exec( strval(file_get_contents(TOP_DIR.DS.'conf'.DS.'schema'.DS.'users.sqlitedb.sql')) );
 $usrStmt = $sqlLink->prepare("INSERT INTO users (id_user, systemName, passwdHash, accessRole, userStatus, createDate) VALUES (?,?,?,?,?,'2026-10-01 09:00:00')");
@@ -84,7 +87,7 @@ checkPregMatch('enrol: the code is 10 characters that are not taken for one anot
 checkIdentical('enrol: pending, member by default, no password', Array(fieldOf($sqlLink, 'emma', 'userStatus'), fieldOf($sqlLink, 'emma', 'accessRole'), fieldOf($sqlLink, 'emma', 'passwdHash')), Array('awaiting', 'standard', '!'));
 checkIdentical('enrol: only the hash of the code is stored, without its dashes', fieldOf($sqlLink, 'emma', 'actvtnCode'), hash('sha256', str_replace('-', '', strval($emmaCod))));
 checkIdentical('enrol: the code handed over lasts 300 minutes', abs(strtotime(strval(fieldOf($sqlLink, 'emma', 'codeExpiry'))) - (time()+300*60))<=5, true);
-checkPregMatch('enrol: the creation date is given by the database', fieldOf($sqlLink, 'emma', 'createDate'), '/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/');
+checkIdentical('enrol: the creation date is given by the clock of PHP, as every other date', Array(preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/', strval(fieldOf($sqlLink, 'emma', 'createDate'))), abs(strtotime(strval(fieldOf($sqlLink, 'emma', 'createDate'))) - time())<=5), Array(1, true));
 checkPregMatch('enrol: logged as a notice, signed', readLogs(), '/\[NOTICE\] User "emma" created \(standard\) by user "anna" from 192\.0\.2\.7/');
 checkIdentical('enrol: a pending user cannot log in, whatever it gives', Array($natAuth->checkSecretDct(Array('user'=>'emma', 'pass'=>'!')), $natAuth->checkSecretDct(Array('user'=>'emma', 'pass'=>'')), $natAuth->checkSecretDct(Array('user'=>'emma', 'pass'=>strval($emmaCod)))), Array(false, false, false));
 checkPregMatch('enrol: with a role', $usrBase->enrolUsrString('Fred.Opr-2', 'advanced'), '/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{2}$/D');

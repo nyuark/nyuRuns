@@ -129,7 +129,7 @@ class UserBase extends Native{
 			}
 		}
 		$newCodig = $this->makeAccessCode();
-		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?);";
+		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}, {createDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, '".date('Y-m-d H:i:s')."');";
 		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, $roleVals, $mailVals, $langVals, $this->listCodeHashes($newCodig)[0], $this->getCodeEndDate($codMinuteNum)))<1 ){
 			return $this->denyWithReason(500, 'User cannot be written');
 		}
@@ -185,7 +185,7 @@ class UserBase extends Native{
 		$newCodig = $this->makeAccessCode();
 		// The language of the request is a hint : one that is not a tag is left out, never refused
 		$langVals = $this->checkLangAsTag($givenLangTag);
-		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}, {signupDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, ?);";
+		$addSttmt = "INSERT INTO {usrTable} ({systemName}, {passwdHash}, {accessRole}, {userStatus}, {contactEml}, {userLocale}, {actvtnCode}, {codeExpiry}, {signupDate}, {createDate}) VALUES (?, ?, ?, 'awaiting', ?, ?, ?, ?, ?, '".date('Y-m-d H:i:s')."');";
 		if( $this->sendWriteCount($addSttmt, Array($namedUserTxt, self::VOID_HASH, Checker::ROLE_LIST[0], $mailVals, ($langVals===false) ? null : $langVals, $this->listCodeHashes($newCodig)[0], $this->getCodeEndDate($this->twoFactExp), date('Y-m-d H:i:s')))<1 ){
 			return $this->denyWithReason(500, 'User cannot be written');
 		}

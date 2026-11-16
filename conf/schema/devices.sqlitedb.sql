@@ -2,7 +2,7 @@
 -- The table name is the 'useTable' value of the device block in conf/access.json, the users table its 'usersTbl' value.
 -- Created by php nyuRun install userBase, after the users table, when conf/access.json holds a device block.
 -- The removal of a user takes its devices along: the framework's SQLite handler turns the foreign keys on.
--- createDate is given by the clock of the database, in UTC, the other dates by the one of PHP.
+-- Every date is given by the clock of PHP, createDate too; its default only serves a row written by hand, in the time of the database, in UTC.
 
 CREATE TABLE `devices` (
 	`id_device`  INTEGER PRIMARY KEY,

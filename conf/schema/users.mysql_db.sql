@@ -1,7 +1,7 @@
 -- Native userbase (Access\Auth\Native), MySQL.
 -- The table name is the 'useTable' value of the strategy's config block in conf/access.json.
 -- With the default collation, systemName is matched without case: 'Anna' and 'anna' are the same user.
--- createDate is given by the clock of the database, the other dates by the one of PHP.
+-- Every date is given by the clock of PHP, createDate too; its default only serves a row written by hand, in the time of the database.
 
 CREATE TABLE `users` (
 	`id_user`    INT UNSIGNED NOT NULL AUTO_INCREMENT,

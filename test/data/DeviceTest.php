@@ -13,6 +13,9 @@ if( !extension_loaded('pdo_sqlite') ){
 
 use nyu\Access\Auth\Device as DeviceAuth;
 
+// The dates of the devices are those of PHP's clock, whatever the database's: PHP is given a zone far from UTC, which SQLite writes in
+date_default_timezone_set('Pacific/Kiritimati');
+
 createSampleDb( inTemporaryDir('device.sqlite') );
 switchToSqlite( inTemporaryDir('device.sqlite') );
 $sqlLink = new PDO('sqlite:'.inTemporaryDir('device.sqlite'));
@@ -62,6 +65,7 @@ $dvcAuth->addDeviceToken('ben', 'Laptop', 'app');
 $allDvcs = $dvcAuth->listUsrDevices();
 checkIdentical('Device listDevcs lists every device, with its user', array_map(function(Array $deviceRow){ return $deviceRow['systemName'].'/'.$deviceRow['deviceName'].'/'.$deviceRow['deviceRole']; }, (array)$allDvcs), Array('anna/Home/home', 'anna/Phone/app', 'ben/Laptop/app'));
 checkIdentical('Device listDevcs gives no hash', array_keys($allDvcs[0] ?? Array()), Array('id_device', 'deviceName', 'deviceRole', 'deviceTops', 'accessDate', 'revokeDate', 'createDate', 'systemName', 'accessRole'));
+checkIdentical('Device: the creation date is given by the clock of PHP, as every other date', abs(strtotime(strval($allDvcs[0]['createDate'] ?? '')) - time())<=5, true);
 checkIdentical('Device listDevcs of one user, of a user without any, of an unknown one', Array(array_column((array)$dvcAuth->listUsrDevices('ben'), 'deviceName'), $dvcAuth->listUsrDevices('dave'), $dvcAuth->listUsrDevices('zed')), Array(Array('Laptop'), Array(), Array()));
 checkIdentical('Device listDevcs tells the revoked one', array_map(function(Array $deviceRow){ return $deviceRow['revokeDate']!==null; }, (array)$dvcAuth->listUsrDevices('anna')), Array(false, true));
 // Tables that cannot be used
