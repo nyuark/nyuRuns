@@ -159,8 +159,13 @@ if( function_exists('openssl_pkey_new') ){
 }
 $projDir = freshPrjt('wrongs');
 checkIdentical('an answer that is not one of those proposed', Array(callShellArray($projDir, Array('install', 'complete', '--sendWith=none'), "website\n")['code'], callShellArray($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=allInOne'), "LIVE\n")['code'], callShellArray($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=allInOne'), "\nldap\n")['code']), Array(3, 3, 3));
+// No store is taken only for a login that needs none: here, through the htpasswd file
+callShellArray($projDir, Array('install', 'makeConf'));
+$axsTree = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
+$axsTree['loginSet'] = Array('authWith'=>'htpasswd', 'authConf'=>'htpasswd') + (array)($axsTree['loginSet'] ?? Array());
+writeInProject($projDir, 'conf/access.json', strval(json_encode($axsTree)));
 $jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=none', '--noPrompt', '--useStore=none'));
-checkIdentical('a store without users of its own', Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
+checkIdentical('a store without users of its own',Array($jsnVals['exit'] ?? null, is_file($projDir.DS.'conf'.DS.'users.lst')), Array(4, false));
 checkIdentical('without a store, no key of the 2FA secrets is made: the check tells the secrets would be readable', Array(parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_TFA_KEY'] ?? '', stateOf($jsnVals)['2FA key nativeDb'] ?? null), Array('', 'warn'));
 callShellArray($projDir, Array('setting', 'setValue', 'accsConf', 'nativeDb.tfaCrypt', 'too-short'));
 checkIdentical('a key of the 2FA secrets that is too short fails the check', stateOf(runShellAsJson($projDir, Array('install', 'checkAll')))['2FA key nativeDb'] ?? null, 'fail');
@@ -250,6 +255,10 @@ if( function_exists('openssl_pkey_new') ){
 	$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=authServ', '--noPrompt'));
 	checkIdentical('authServ without a question: the host name as issuer, no audience, which the check tells', Array(json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['jwtToken']['issuerId'] ?? null, stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null),
 		Array(strval(gethostname()), 'warn', 'authServ: no audience, the tokens are not bound to the projects accepting them'));
+	// allInOne, when its login works through a store, refuses to go without it
+	$noneDir = freshPrjt('allnone');
+	$runVals = callShellArray($noneDir, Array('install', 'complete', '--sendWith=none', '--noPrompt', '--useStore=none'));
+	checkIdentical('allInOne without a store, its login working through one: refused, no users made', Array($runVals['code'], strpos($runVals['errs'], 'A project with users of its own (allInOne) logs them in through a store')!==false, is_file($noneDir.DS.'conf'.DS.'users.lst')), Array(3, true, false));
 	checkIdentical('authServ without a store is refused', callShellArray(freshPrjt('authnone'), Array('install', 'complete', '--sendWith=none', '--projKind=authServ', '--noPrompt', '--useStore=none'))['code'], 3);
 
 	$keyObjc = openssl_pkey_new( Array('private_key_bits'=>2048, 'private_key_type'=>OPENSSL_KEYTYPE_RSA, 'config'=>TOP_DIR.DS.'src'.DS.'Shell'.DS.'keygen.cnf') );

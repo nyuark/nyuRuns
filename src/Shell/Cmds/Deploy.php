@@ -815,6 +815,10 @@ class Deploy extends Command{
 		if( $storeNme=='none' && $profileNamed=='authServ' ){
 			$this->stopWithReason('An authentication server (authServ) logs its users in: it needs a store (nativeDb or userFile)', self::EXIT_DENY);
 		}
+		// A login working through a store cannot be left without it: no users would be made, and nobody could log in
+		if( $storeNme=='none' && in_array($lognAuth, Array('nativeDb', 'userFile'), true) ){
+			$this->stopWithReason('A project with users of its own (allInOne) logs them in through a store: --useStore=nativeDb or userFile. Without users, the profile is dataServ or openSite', self::EXIT_DENY);
+		}
 		// The login is pointed at the store chosen
 		if( $storeNme!='none' && $storeNme!=$lognAuth && is_file($accsPath) ){
 			$treeInst = $wrtrInst->readRawJsonCfg($accsPath);
