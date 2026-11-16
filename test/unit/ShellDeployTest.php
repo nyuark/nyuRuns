@@ -273,6 +273,16 @@ if( function_exists('openssl_pkey_new') ){
 	writeInProject($projDir, 'conf/access.json', strval(json_encode($axsVals, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)));
 	$jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
 	checkPregMatch('a public key alone beside a users\' store makes none of the three', strval(array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? ''), '/^none of allInOne, authServ, dataServ, openSite: the tokens are checked with a public key alone/');
+	// Without a question on a new project: the options give the key, the issuer and the audiences
+	$optsDir = freshPrjt('dataopt');
+	writeInProject($optsDir, 'temp/issuer.pub', $srcPubl);
+	$jsnVals = runShellAsJson($optsDir, Array('install', 'complete', '--sendWith=none', '--projKind=dataServ', '--noPrompt', '--publFile=temp/issuer.pub', '--issuerId=https://auth.example.org', '--audience=api.example.org, files.example.org'));
+	$axsVals = json_decode(strval(fetchInProject($optsDir, 'conf/access.json')), true);
+	checkIdentical('dataServ without a question: --publFile, --issuerId and --audience answer it', Array(fetchInProject($optsDir, 'conf/keys/jwtToken.pub'), $axsVals['jwtToken']['external'] ?? null, $axsVals['jwtToken']['issuerId'] ?? null, $axsVals['jwtToken']['audience'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null, stateOf($jsnVals)['profile'] ?? null),
+		Array($srcPubl, true, 'https://auth.example.org', Array('api.example.org', 'files.example.org'), 'dataServ', 'fine'));
+	checkPregMatch('dataServ without a question nor the option: stopped, the option named', callShellArray(freshPrjt('datanof'), Array('install', 'complete', '--sendWith=none', '--projKind=dataServ', '--noPrompt'))['errs'], '/Nothing was installed: no file of the public key given \(--publFile names it\)/');
+	$jsnVals = runShellAsJson(freshPrjt('authopt'), Array('install', 'complete', '--sendWith=none', '--projKind=authServ', '--noPrompt', '--issuerId=https://auth.example.org', '--audience=api.example.org'));
+	checkIdentical('authServ without a question: the two options bind its tokens', Array(stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null), Array('fine', 'authServ'));
 	checkIdentical('dataServ: a store, a missing key, or a file that is not a public key: refused', Array(callShellArray(freshPrjt('datastr'), Array('install', 'complete', '--sendWith=none', '--projKind=dataServ', '--useStore=userFile'))['code'], callShellArray(freshPrjt('datanop'), Array('install', 'complete', '--sendWith=none', '--projKind=dataServ', '--noPrompt'))['code'], callShellArray(freshPrjt('databad'), Array('install', 'complete', '--sendWith=none', '--projKind=dataServ'), "conf/access.json.dist\n")['code']), Array(2, 3, 3));
 }
 

@@ -26,6 +26,9 @@ use nyu\Shell\UserFile;
  *   php nyuRun install complete             the whole sequence, asking what it needs with a default to take on Enter
  *   php nyuRun install complete --noPrompt  the same without a question, for a deployment script
  *   php nyuRun install complete --projKind=dataServ  the profile of the project answered beforehand
+ *   php nyuRun install complete --projKind=dataServ --publFile=<file> --issuerId=<name> --audience=<a,b> --noPrompt
+ *                                      a resource server without a question: the public key of the authentication
+ *                                      server, its issuer and the audiences naming this project (the last two for authServ too)
  *   php nyuRun install testHost             checks the server: PHP, extensions, folders
  *   php nyuRun install makeConf             creates the local files from their examples
  *   php nyuRun install userBase             creates the users table and the basic users, or the users file;
@@ -70,7 +73,7 @@ class Deploy extends Command{
 	 */
 	public function listSubCmndDct(): Array {
 		return Array(
-			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ|openSite>] [--useStore=<nativeDb|userFile|none>] [--sendWith=<selfSmtp|phpMailr|emlFiles|none>] [--signupOn] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
+			'complete'=>Array('args'=>'[--projKind=<allInOne|authServ|dataServ|openSite>] [--useStore=<nativeDb|userFile|none>] [--sendWith=<selfSmtp|phpMailr|emlFiles|none>] [--signupOn] [--publFile=<file>] [--issuerId=<name>] [--audience=<a,b>] [--noPrompt]', 'about'=>'the whole sequence: servr, files, questions, secrets, users, check'),
 			'testHost'=>Array('args'=>'', 'about'=>'checks the server: PHP version, extensions, writable folders'),
 			'makeConf'=>Array('args'=>'', 'about'=>'creates .env, conf/access.json, conf/database.json and conf/mailer.json from their examples; none is replaced'),
 			'userBase'=>Array('args'=>'[block] [--useStore=<nativeDb|userFile>]', 'about'=>'creates the users table and the basic users (nativeDb), or the users file (userFile); the devices table with a device block'),
@@ -924,9 +927,12 @@ class Deploy extends Command{
 		$isExtern = ($tokenConfObj->external ?? false)===true;
 		$nowIssur = is_string($tokenConfObj->issuerId ?? null) ? trim($tokenConfObj->issuerId) : '';
 		$nowIssur = ($nowIssur=='' && !$isExtern) ? strval(gethostname()) : $nowIssur;
+		// --issuerId and --audience answer the two questions beforehand
+		$nowIssur = trim( strval($this->optionsObj->getOptionValue('issuerId', $nowIssur)) );
 		$tokenConfObj->issuerId = trim( $this->promptValueTxt($isExtern ? 'Issuer of the authentication server\'s tokens (issuerId)' : 'Issuer of the tokens (issuerId)', $nowIssur) );
 		$nowAudnc = $tokenConfObj->audience ?? Array();
 		$nowAudnc = is_array($nowAudnc) ? implode(', ', array_map('strval', $nowAudnc)) : strval($nowAudnc);
+		$nowAudnc = strval( $this->optionsObj->getOptionValue('audience', $nowAudnc) );
 		$audnText = $this->promptValueTxt($isExtern ? 'Audience naming this project (audience, comma-separated)' : 'Projects that will accept its tokens (audience, comma-separated)', $nowAudnc);
 		$tokenConfObj->audience = array_values( array_filter(array_map('trim', explode(',', $audnText)), 'strlen') );
 	}
@@ -947,11 +953,12 @@ class Deploy extends Command{
 	protected function promptIssurKey( \stdClass $tokenConfObj, String $blockNmdText ): Void {
 		$publName = 'conf/keys/'.$blockNmdText.'.pub';
 		$publPath = TOP_DIR.DS.str_replace('/', DS, $publName);
-		$srceName = trim( $this->promptValueTxt('File of the public key of the authentication server', is_file($publPath) ? $publName : '') );
+		// --publFile answers the question beforehand: without it, --noPrompt has no file to take on a new project
+		$srceName = trim( $this->promptValueTxt('File of the public key of the authentication server', strval($this->optionsObj->getOptionValue('publFile', is_file($publPath) ? $publName : ''))) );
 		// The path is read from where the command runs, or from the project
 		$srcePath = is_file($srceName) ? $srceName : TOP_DIR.DS.str_replace(Array('/', '\\'), DS, ltrim($srceName, '/\\'));
 		if( $srceName=='' || !is_file($srcePath) ){
-			$this->stopWithReason('Nothing was installed: no file of the public key'.( $srceName!='' ? ' at '.json_encode($srceName) : ' given' ), self::EXIT_DENY);
+			$this->stopWithReason('Nothing was installed: no file of the public key'.( $srceName!='' ? ' at '.json_encode($srceName) : ' given (--publFile names it)' ), self::EXIT_DENY);
 		}
 		if( !function_exists('openssl_pkey_get_public') ){
 			$this->stopWithReason('Nothing was installed: RS256 needs the openssl extension', self::EXIT_FAIL);
