@@ -87,6 +87,25 @@ Class SQLite extends PDO {
 	}
 
 	/**
+	 * Lists the columns a record cannot be written without, through SQLite's
+	 * table_info: no NULL, no default value, not the key (an INTEGER PRIMARY
+	 * KEY is counted by the database).
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The names of those columns, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function getColNeedList(String $tbleLabelTxt): Array|Bool {
+		$this->quoteFieldName($tbleLabelTxt);
+		if( !$this->sendBuiltQuery('SELECT name FROM pragma_table_info(?) WHERE "notnull" = 1 AND dflt_value IS NULL AND pk = 0 ORDER BY cid;', false, Array($tbleLabelTxt)) ){
+			return false;
+		}
+		$fieldRow = $this->readLastResult(true);
+		return is_array($fieldRow) ? array_column($fieldRow, 'name') : false;
+	}
+
+	/**
 	 * Lists the tables of the database, through sqlite_master: SQLite's own
 	 * tables (sqlite_*) left out.
 	 *

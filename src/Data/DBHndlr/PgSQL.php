@@ -110,6 +110,26 @@ Class PgSQL extends PDO {
 	}
 
 	/**
+	 * Lists the columns a record cannot be written without, through the
+	 * PostgreSQL catalogue: no NULL, no default value (a serial has one),
+	 * not an identity.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The names of those columns, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function getColNeedList(String $tbleLabelTxt): Array|Bool {
+		$needQuer = 'SELECT a.attname AS name FROM pg_attribute a'
+			.' WHERE a.attrelid = to_regclass(?) AND a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull AND NOT a.atthasdef AND a.attidentity = \'\' ORDER BY a.attnum;';
+		if( !$this->sendBuiltQuery($needQuer, false, Array($this->quoteFieldName($tbleLabelTxt))) ){
+			return false;
+		}
+		$fieldRow = $this->readLastResult(true);
+		return is_array($fieldRow) ? array_column($fieldRow, 'name') : false;
+	}
+
+	/**
 	 * Lists the tables of the current schema, views left out.
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.

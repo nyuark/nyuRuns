@@ -144,4 +144,13 @@ checkIdentical('events: an unknown record, a record without events', Array(callS
 checkIdentical('items: without its own route, no action; a helper is none either', Array(callShow('items', Array(), '1')[0], callShow('readRecordById', Array(), '1')[0]), Array(404, 404));
 checkIdentical('roles: nobody logged is refused as for a route that does not exist', callShow('index', Array(), null, '')[0], 404);
 
+// The defaults of the questions: a column a record cannot be written without (no NULL, no default, not the key) is proposed as required
+$pdoLink = new PDO('sqlite:'.$basePth);
+$pdoLink->exec('CREATE TABLE members (id_member INTEGER PRIMARY KEY, lastname TEXT NOT NULL, since INTEGER NOT NULL, nickname TEXT, rank INTEGER NOT NULL DEFAULT 1)');
+$pdoLink = null;
+$runVals = callShellArray($projDir, Array('makerun', 'crudlRun', 'Members', '--noPrompt'));
+$specArr = json_decode(strval(fetchInProject($projDir, 'runs/Members/runspec.json')), true);
+checkIdentical('crudlRun without a question: the columns that must be given are required, the others as their type tells', Array($runVals['code'], $specArr['fieldSet'] ?? null), Array(0, Array('lastname!'=>'', 'since!'=>'Integer', 'nickname'=>'', 'rank'=>'Integer')));
+checkIdentical('crudlRun without a question: the input file of create requires them', array_keys(json_decode(strval(fetchInProject($projDir, 'runs/Members/input/create.json')), true)['fieldSet'] ?? Array()), Array('lastname!', 'since!', 'nickname', 'rank'));
+
 finishChecking();

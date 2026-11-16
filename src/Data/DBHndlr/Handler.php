@@ -129,6 +129,16 @@ interface Handler{
 	 */
 	public function getColTypeList(String $tbleLabelTxt): Array|Bool;
 	/**
+	 * Lists the columns of a table a record cannot be written without: those
+	 * that take no NULL, have no default value and are not filled by the database.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The names of those columns, in the order of the table (none: an empty list), or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function getColNeedList(String $tbleLabelTxt): Array|Bool;
+	/**
 	 * Lists the tables of the database, views and the database's own tables left out.
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.

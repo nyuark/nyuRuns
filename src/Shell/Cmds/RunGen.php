@@ -204,12 +204,14 @@ class RunGen extends Command{
 	 */
 	protected function promptFldsDict( String $linkNameText, String $tbleLabelTxt, String $identColText, Array $binaryFields ): Array {
 		$typeList = DBCon::linkNamedDbCon($linkNameText)->readConnection()->getColTypeList($tbleLabelTxt);
+		// A column a record cannot be written without is proposed as required: left out, a create would fail in the database
+		$needList = (array)DBCon::linkNamedDbCon($linkNameText)->readConnection()->getColNeedList($tbleLabelTxt);
 		$fldsDict = Array();
 		foreach( (array)$typeList as $oneFld => $oneCod ){
 			if( $oneFld===$identColText || in_array($oneFld, $binaryFields, true) ){
 				continue;
 			}
-			$frmtText = $this->promptValueTxt('Field '.$oneFld.' ('.$oneCod.'): its format, ! after it to require it, - to leave it out', RunSpec::getFormatOfCol(strval($oneCod)));
+			$frmtText = $this->promptValueTxt('Field '.$oneFld.' ('.$oneCod.'): its format, ! after it to require it, - to leave it out', RunSpec::getFormatOfCol(strval($oneCod)).(in_array($oneFld, $needList, true) ? '!' : ''));
 			if( $frmtText==='-' ){
 				continue;
 			}

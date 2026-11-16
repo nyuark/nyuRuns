@@ -99,6 +99,32 @@ Class MySQL extends PDO {
 	}
 
 	/**
+	 * Lists the columns a record cannot be written without, through EXPLAIN:
+	 * no NULL, no default value, neither counted nor computed by the database.
+	 *
+	 * @param String $tbleLabelTxt Name of the table.
+	 * @return Array|Bool The names of those columns, in the order of the table, or false when the table cannot be described.
+	 *
+	 * @throws \RuntimeException When the table name is not valid.
+	 */
+	public function getColNeedList(String $tbleLabelTxt): Array|Bool {
+		if( !$this->sendBuiltQuery('EXPLAIN '.$this->quoteFieldName($tbleLabelTxt).';') ){
+			return false;
+		}
+		$fieldRow = $this->readLastResult(true);
+		if( !is_array($fieldRow) || empty($fieldRow) ){
+			return false;
+		}
+		$needList = Array();
+		foreach( $fieldRow as $oneRow ){
+			if( strtoupper(strval($oneRow['Null'] ?? ''))=='NO' && ($oneRow['Default'] ?? null)===null && !preg_match('/auto_increment|generated/i', strval($oneRow['Extra'] ?? '')) ){
+				$needList[] = strval($oneRow['Field']);
+			}
+		}
+		return $needList;
+	}
+
+	/**
 	 * Lists the tables of the database, views left out.
 	 *
 	 * @return Array|Bool The names of the tables, in name order, or false when they cannot be read.
