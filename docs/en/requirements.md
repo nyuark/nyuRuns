@@ -520,7 +520,7 @@ failed for lack of connections.
   use them ([Technical Specifications, chapter 3](techspecs.md#3-system-requirements)).
 - **Any web server** that hands the request to PHP and sends every URL to
   the entry point. The server itself belongs to its host
-  ([`HOSTING.md`](../HOSTING.md)).
+  ([`HOSTING.md`](../../HOSTING.md)).
 
 ### 8.2 Licence and contributions
 

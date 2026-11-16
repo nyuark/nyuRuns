@@ -18,7 +18,7 @@ project.
 
 And it stays light. A request costs about as much CPU as with Slim, and
 well under half of what Symfony or Laravel need for the same work
-([measured on one machine](docs/funcspecs.md#7-performance-results)).
+([measured on one machine](docs/en/funcspecs.md#7-performance-results)).
 
 ## Requirements
 
@@ -28,7 +28,7 @@ well under half of what Symfony or Laravel need for the same work
 - A database extension (`pdo_sqlite`, `pdo_mysql`, `pdo_pgsql`,
   `mongodb`) if your service uses one; you don't need any to get started
 
-The full list is in the [Technical Specifications, chapter 3](docs/techspecs.md#3-system-requirements).
+The full list is in the [Technical Specifications, chapter 3](docs/en/techspecs.md#3-system-requirements).
 
 ## Installation
 
@@ -62,7 +62,7 @@ curl -X POST http://localhost:8000/auth/login -d "userName=userDemo&passWord=<it
 {"token":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs…"}
 ```
 
-Step by step: [User Guide, chapter 3](docs/userguide.md#3-installation-processes).
+Step by step: [User Guide, chapter 3](docs/en/userguide.md#3-installation-processes).
 
 ## Configuration
 
@@ -80,7 +80,7 @@ Profiles (`conf/presets`) decide how a service is reached, who gets in and
 how it replies: an open API, an API with keys, a web API with tokens, or a
 site with sessions. Each route's minimum role is set in the profile too.
 For mails, languages, users, secrets and logs, see the
-[User Guide, chapter 4](docs/userguide.md#4-configuration-steps).
+[User Guide, chapter 4](docs/en/userguide.md#4-configuration-steps).
 
 ## Set up a simple run
 
@@ -112,26 +112,28 @@ class Actions extends Actionset {
 }
 ```
 
-Around it, you add a model for each table (`mods/SingleModel.php`,
+Around it, you add a model for each table (`mods/Single.php`,
 extending `nyu\Data\DBRec`), the inputs of each action
 (`input/view.json`), and its URLs (`runs/Notes/routes.rte`, one action per
 method). The full tutorial, a list of notes everyone can read and only
 staff can write, with a page and a test, is in the
-[User Guide, chapter 5](docs/userguide.md#5-building-your-first-application-run).
+[User Guide, chapter 5](docs/en/userguide.md#5-building-your-first-application-run).
 
 ## Further documentation
 
 | Document | Go there to |
 |---|---|
-| [User Guide](docs/userguide.md) | install nyuRuns and build your first service, step by step |
-| [Functional Specifications](docs/funcspecs.md) | find out what it does and how its processes run |
-| [Technical Specifications](docs/techspecs.md) | see how it's built: components, files, commands, conventions |
-| [Requirements](docs/requirements.md) | learn what it must achieve, and where version 1.0 stands |
+| [User Guide](docs/en/userguide.md) | install nyuRuns and build your first service, step by step |
+| [Functional Specifications](docs/en/funcspecs.md) | find out what it does and how its processes run |
+| [Technical Specifications](docs/en/techspecs.md) | see how it's built: components, files, commands, conventions |
+| [Requirements](docs/en/requirements.md) | learn what it must achieve, and where version 1.0 stands |
 | [`HOSTING.md`](HOSTING.md) | put a project on a real server |
 | Code reference | look up any class or method, generated from the code |
 
-`pwsh .phpdoc/build.ps1` builds all of it into one site, in the project's
-look: open `docs/site/index.html`.
+`pwsh .phpdoc/build.ps1` builds the documents and the code reference as HTML,
+in the project's look, into `docs/online/` (not tracked): a folder per
+language, ready to put online. They're published at
+[www.nyuark.com/nyuRuns/docs](https://www.nyuark.com/nyuRuns/docs/).
 
 Run the tests with `php test/run.php`.
 

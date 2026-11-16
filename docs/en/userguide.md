@@ -60,7 +60,7 @@ a terminal and work just the same in PowerShell on Windows.
 |---|---|
 | [Functional Specifications](funcspecs.md) | what nyuRuns does, and how its processes run |
 | [Technical Specifications](techspecs.md) | how it's built: components, files, commands, conventions |
-| [`HOSTING.md`](../HOSTING.md) | putting a project on a real server |
+| [`HOSTING.md`](../../HOSTING.md) | putting a project on a real server |
 | Code reference | any class or method (chapter 7) |
 
 ---
@@ -96,7 +96,7 @@ sounds, or extensions for images and office documents.
 
 - [Technical Specifications, chapter 3](techspecs.md#3-system-requirements)
   lists what each part needs.
-- [`HOSTING.md`](../HOSTING.md) walks you through setting up the server.
+- [`HOSTING.md`](../../HOSTING.md) walks you through setting up the server.
 
 On any machine, `php nyuRun install checkAll` tells you what's missing.
 
@@ -289,7 +289,7 @@ You don't copy a project to a server as is. You build a copy made for
 that server (`php nyuRun bundles final`), install it there with
 `install complete`, and put it behind a web server that sends every URL to
 `www/index.php`. Chapter 8 has the checklist for going live, and
-[`HOSTING.md`](../HOSTING.md) covers the server setup.
+[`HOSTING.md`](../../HOSTING.md) covers the server setup.
 
 ---
 
@@ -524,8 +524,8 @@ URL and a page for browsers. It only takes a handful of short files:
 ```
 runs/Notes/
   notes.sql                 the table
-  mods/ListingModel.php     the list of notes
-  mods/SingleModel.php      one note
+  mods/Listing.php          the list of notes
+  mods/Single.php           one note
   Actions.php               what the run does
   input/<action>.json       the inputs of each action
   pages/note.html           the page of a note
@@ -560,7 +560,7 @@ php -r "(new PDO('sqlite:notes.sqlite'))->exec(file_get_contents('runs/Notes/not
 
 ### 5.2 The models
 
-First, the list of notes, `runs/Notes/mods/ListingModel.php`:
+First, the list of notes, `runs/Notes/mods/Listing.php`:
 
 ```php
 <?php
@@ -580,10 +580,12 @@ class Listing extends DBLst {
 }
 ```
 
-Then a single note, `runs/Notes/mods/SingleModel.php`: the same thing,
-except that `Single` extends `nyu\Data\DBRec`. Actions get them by name,
-`getModelObject('listing')` and `getModelObject('single')`, and the models work out
-the table's key and fields on their own.
+Then a single note, `runs/Notes/mods/Single.php`: the same thing, except
+that `Single` extends `nyu\Data\DBRec`. Each file is named after its class.
+Actions get them by name, `getModelObject('listing')` and
+`getModelObject('single')`, and the models work out the table's key and
+fields on their own. A file named `ListingModel.php` would be found too:
+it's the older form, kept as a fallback.
 
 ### 5.3 The actions
 
@@ -1003,20 +1005,23 @@ php -d memory_limit=1G temp/tools/phpDocumentor.phar run
 
 It reads `phpdoc.dist.xml`, which covers the classes in `src` with their
 public and protected methods, and writes the reference to
-`docs/site/reference`, which git doesn't track. phpDocumentor needs the
+`docs/online/reference`, which git doesn't track. phpDocumentor needs the
 `mbstring` extension.
 
 With PowerShell, `pwsh .phpdoc/build.ps1` builds the whole documentation
-site in one go. First comes the reference, then the pages of the
-documents you're reading right now, rendered in the project's look by
-nyuRuns' own Markdown parser and HTML writer. The `.md` files stay the
-source, and `docs/site` is built from them.
+in one go. First comes the reference, then the pages of the documents
+you're reading right now, in each language they're written in, rendered
+in the project's look by nyuRuns' own Markdown parser and HTML writer. The
+`.md` files stay the source, and `docs/online` is built from them: a
+folder per language, the reference beside them, and an `index.html` that
+sends a visitor to their browser's language.
 
 ### 7.2 Read it
 
-Open `docs/site/index.html` in a browser, or serve the folder
-(`php -S localhost:8790 -t docs/site`). The code reference is the last
-entry in the menu, `docs/site/reference/index.html`. Classes are listed by
+Open `docs/online/index.html` in a browser, or serve the folder
+(`php -S localhost:8790 -t docs/online`). The code reference is the last
+entry in the menu, `docs/online/reference/index.html`, in English in every
+language. Classes are listed by
 namespace, and chapter 5 of the Technical Specifications says what each
 one holds. The ones you'll use most in a run are:
 
@@ -1045,7 +1050,7 @@ item points to where it's covered in full: the advice in the
 [Technical Specifications, chapter 2](techspecs.md#2-guidelines-and-recommendations),
 the design in the
 [Functional Specifications, chapter 8](funcspecs.md#8-development-guidelines),
-and the server in [`HOSTING.md`](../HOSTING.md).
+and the server in [`HOSTING.md`](../../HOSTING.md).
 
 ### 8.1 Before you ship
 
@@ -1163,7 +1168,7 @@ look.
 | `origins <profile>` | any site may call the API from a browser | list the allowed origins under `corsList` |
 | `route clash`, `route shadow` | two runs declare the same path, or a site route hides a run's route | rename one of the paths, or change a run's mount |
 | `access route` | `openList` or `minRoles` names a route that doesn't exist | fix the entry in the profile |
-| `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun setting setValue accsConf jwtToken.issuer …` and `.audience` |
+| `token claims …` | the tokens carry no issuer or audience, so they aren't bound to this project | `php nyuRun setting setValue accsConf jwtToken.issuerId …` and `.audience` |
 | `login marks` | no key for the login marks, so holding an account also locks out its owner | `php nyuRun setting mkSecret markSecr` |
 | `file rights` | the rights of the secret files can't be checked (Windows) | limit `conf` and `temp` to the web server's account (`icacls`) |
 | `secret …`, `token keys …`, `2FA key …` | a secret or key is missing, too short, not a valid key, or a public key that doesn't pair with its private key | `php nyuRun setting mkSecret jwtToken` (or `keysList`, `tfaCrypt`) |

@@ -781,8 +781,16 @@ A carrier and a check that can't work together refuse every request
   `serveFileReply()`, `servePageReply()`, `redirectClient()`,
   `makeUrlOfRoute()`, `setReplyFormat()`, `getLoggerOfApp()`,
   `needsActionRle()`, `hasRoleOrAbove()` and `stopThisAction()`.
-- **`App\ModelStack`**: the models of a run, every `*Model.php` of its
-  `mods/` folder, then those shared in `runs/Shared`.
+- **`App\ModelStack`**: the models of a run, every `<Name>.php` of its
+  `mods/` folder (`<Name>Model.php` as a fallback, `<Name>.php` winning
+  when both are there), then those shared in `runs/Shared`, found the same
+  way.
+- **`App\RunLoader`**: loads the classes of the runs when they're first
+  asked for: the actions and the command of a run, its models, a class in
+  a file of its own name, and the classes of `runs/Shared`. It's registered
+  after Composer's own loader by `src/App/loadruns.php` (Composer's
+  `autoload.files`), so a project updated from an earlier copy runs
+  `composer dump-autoload` once. No code requires a file of a run by itself.
 - **`App\StopRun`**: what `stopThisAction()` throws to stop an action on
   purpose, with its status and its output.
 
@@ -865,7 +873,7 @@ attachments, `phpMailr`) or **`ToFile`** (`.eml` files, `emlFiles`).
 |---|---|---|
 | a credential check | `runs/Shared/<Name>Auth.php`, implementing `Access\Auth\Handler` | the `plugLibs` block of `access.json`, under `authWith` |
 | a carrier | `runs/Shared/<Name>Carr.php`, implementing `Access\Carr\Handler` | the `plugLibs` block, under `carrWith` |
-| a model shared by runs | `runs/Shared/<Name>Model.php` | nothing: found by name |
+| a model shared by runs | `runs/Shared/<Name>.php` (or `<Name>Model.php`) | nothing: found by name |
 | a preset | `conf/presets/<name>.rps` | the entry point that names it |
 | a mail template | `runs/<App>/mails/<language>/<kind>.txt` and `.html` | nothing: replaces the framework's |
 | a command of the command line | `runs/<App>/Shell.php`, the class `Shell` extending `Shell\Command` | nothing: the command is the run's name in lower case |
@@ -993,7 +1001,7 @@ carrier, so a value naming a block reads on its own
 | `dvcToken` | `useTable`, `usersTbl`, `seenSecs` | the table of the devices, the one of their users, and how often a device's last use is recorded; each device's cap, the highest role it acts with, is a column of its table (`deviceTops`) |
 | `tryLimit` | `maxTries`, `holdSecs`, `dataPath`, `maxQueue`, `maxPerIp`, `alertsAt`, `markSecr`, `markDays` | the limit by address, the bounds of the sign-ups, and the login marks |
 | `regdKeys` | `headName`, `keysList` | the header of the API keys, and the keys |
-| `jwtToken` | `hmacSecr`, `lifeSecs`, `signAlgo`, `privFile`, `publFile`, `prevFile`, `issuerId`, `audience` | the tokens: their algorithm, secret or keys, the previous public key, their life, issuer and audience |
+| `jwtToken` | `hmacSecr`, `lifeSecs`, `signAlgo`, `privFile`, `publFile`, `prevFile`, `retireAt`, `issuerId`, `audience`, `external` | the tokens: their algorithm, secret or keys, the previous public key and the time it was retired, their life, issuer and audience; `external` when the public key is another server's |
 | `phpSessn` | `cookName`, `lifeSecs`, `fullSecs`, `sameSite`, `secureOn`, `dataPath` | the PHP sessions: the cookie, the time unused and in all |
 | `clntCert` | `checkVar`, `ownerVar`, `issueVar`, `issuerId` | the server values a client certificate is read from, and the issuer accepted |
 | `appsKeys` | `headName`, `appsList`, `audience` | the keys of the applications calling for their users (`keyDigst`, `routeSet`, `publFile`, `roleTops`, `madeDate` for each) |
@@ -1264,7 +1272,7 @@ letter in capitals. Only `Actions.php` is required:
 ```
 runs/Notes/
   Actions.php                 the actions                  namespace nyu\Runs\Notes
-  mods/<Name>Model.php        the models                   namespace nyu\Runs\Notes\mods
+  mods/<Name>.php             the models                   namespace nyu\Runs\Notes\mods
   input/<action>.json         the inputs of each action
   routes.rte                  its own routes
   pages/<name>.html           the pages it replies with
@@ -1382,8 +1390,9 @@ An exception the action doesn't catch is a 500, logged with its trace
 ### 8.5 Models
 
 A model is a record or a list of a table, declared once and fetched by
-name. `mods/SingleModel.php` declares the class `Single` of
-`nyu\Runs\Notes\mods`, fetched as `getModelObject('single')`:
+name. `mods/Single.php` declares the class `Single` of `nyu\Runs\Notes\mods`,
+fetched as `getModelObject('single')`. The older form, `SingleModel.php`,
+is still found when there's no `Single.php`:
 
 ```php
 <?php
@@ -1449,7 +1458,7 @@ action: `GET`/`POST /users` (index, create), `GET`/`DELETE /users/<user>`,
 ## 9. Security
 
 What the framework does to protect a project, in brief. The settings are
-covered in [`HOSTING.md`](../HOSTING.md), the advice in chapter 2, and the
+covered in [`HOSTING.md`](../../HOSTING.md), the advice in chapter 2, and the
 order of the checks in chapter 4.
 
 ### 9.1 Principles
@@ -1469,15 +1478,15 @@ order of the checks in chapter 4.
   and codes are only stored as hashes; a bundle carries none of them.
 - **Split the duties.** The framework handles the request from the moment
   PHP receives it. The web server, TLS, the firewall and `php.ini` belong
-  to the host ([`HOSTING.md` §1](../HOSTING.md#1-purpose-and-split-of-duties)).
+  to the host ([`HOSTING.md` §1](../../HOSTING.md#1-purpose-and-split-of-duties)).
 
 ### 9.2 Requests and inputs
 
 | Risk | What the framework does | Covered in |
 |---|---|---|
-| a body too large to hold | refused with a 413 past `REQ_SIZE` or `REQ_PART`, before it's read | [`HOSTING.md` §11](../HOSTING.md#11-request-sizes) |
+| a body too large to hold | refused with a 413 past `REQ_SIZE` or `REQ_PART`, before it's read | [`HOSTING.md` §11](../../HOSTING.md#11-request-sizes) |
 | values the action didn't expect | only the fields of `input/<action>.json` are kept, each in its format | 6.9 |
-| a forged client address | forwarding headers are read only from the proxies of `PRX_LIST` | [`HOSTING.md` §3](../HOSTING.md#3-reverse-proxy) |
+| a forged client address | forwarding headers are read only from the proxies of `PRX_LIST` | [`HOSTING.md` §3](../../HOSTING.md#3-reverse-proxy) |
 | a password in a link, kept in logs and histories | the `Auth` actions refuse a password sent in the query string (400) | |
 | a filter value used as a pattern | compared as it is; a match is asked for through the field's name (`field~`) | 2.7 |
 | SQL injection | the stores send values as parameters, and accept only names made of letters, digits and underscores | 10 |
@@ -1487,38 +1496,38 @@ order of the checks in chapter 4.
 | Risk | What the framework does | Covered in |
 |---|---|---|
 | mapping what exists | one 404 `Not Found` for an unknown application or action, a closed route, a run reached by its plain path, a missing file, a role not held | 4.5 |
-| leaving a folder | a file asked for in a folder never leaves it; only the extensions of `Response::TYPE_LIST` are served | [`HOSTING.md` §13](../HOSTING.md#13-routing-notes) |
+| leaving a folder | a file asked for in a folder never leaves it; only the extensions of `Response::TYPE_LIST` are served | [`HOSTING.md` §13](../../HOSTING.md#13-routing-notes) |
 | scripts in a page | the placeholders of pages and mails are HTML-encoded | 8.4 |
 | a redirection elsewhere | a sign-in route must be a path of the site; `redirectClient()` takes a path or an `http(s)` address only | |
 | content sniffing | `X-Content-Type-Options: nosniff` on every reply | 4.6 |
-| calls from other sites | `Access-Control-Allow-Origin` names only an origin `corsList` lists | [`HOSTING.md` §10](../HOSTING.md#10-other-sites-calling-in) |
+| calls from other sites | `Access-Control-Allow-Origin` names only an origin `corsList` lists | [`HOSTING.md` §10](../../HOSTING.md#10-other-sites-calling-in) |
 
 ### 9.4 Credentials
 
 - **Passwords** are hashed with bcrypt. An unknown name still costs one
   hash, so the time a refusal takes doesn't reveal which names exist. A
   password file accepts weak formats only when told to (`weakHash`,
-  [`HOSTING.md` §6](../HOSTING.md#6-password-files)).
+  [`HOSTING.md` §6](../../HOSTING.md#6-password-files)).
 - **Accounts that aren't active** are refused just like a wrong password;
   the reason is in the log only.
 - **Tokens** carry an expiry (`exp`) and a user, or they're refused; once
   set, their issuer (`iss`) and audience (`aud`) are checked too. RS256
   keys under 2048 bits are refused, and a token names its key (`kid`)
-  ([`HOSTING.md` §8](../HOSTING.md#8-tokens)).
+  ([`HOSTING.md` §8](../../HOSTING.md#8-tokens)).
 - **Sessions** end after `lifeSecs` unused or `fullSecs` in all. A login
   gets a new session id and closes the one it came with, and the cookie is
   `HttpOnly`, `Secure` and `SameSite` as set
-  ([`HOSTING.md` §9](../HOSTING.md#9-php-sessions)).
+  ([`HOSTING.md` §9](../../HOSTING.md#9-php-sessions)).
 - **Two-factor codes** are accepted once each, and their secrets are
   stored encrypted with `tfaCrypt`
-  ([`HOSTING.md` §7](../HOSTING.md#7-two-factor-codes)). A code mailed for
+  ([`HOSTING.md` §7](../../HOSTING.md#7-two-factor-codes)). A code mailed for
   a login goes out once a minute at most.
 - **Keys, personal tokens, device tokens, application keys, activation
   and reset codes** are shown once, stored as hashes, and compared by
   their hash.
 - **Codes sent by mail** last `codeMins` minutes, and a reset keeps the
   password until its code is used
-  ([`HOSTING.md` §15](../HOSTING.md#15-access-mails)).
+  ([`HOSTING.md` §15](../../HOSTING.md#15-access-mails)).
 - **Mail** is sent encrypted, with the server's certificate verified.
 
 ### 9.5 Attempts
@@ -1532,7 +1541,7 @@ account after its own `maxTries` wrong passwords. A client that already
 signed in successfully carries a login mark, signed with `markSecr`, and
 still gets in while its account is held, so an attacker can't lock the
 owner out. Sign-ups are bounded per client and in
-all ([`HOSTING.md` §5](../HOSTING.md#5-limit-by-address-and-account-holds)).
+all ([`HOSTING.md` §5](../../HOSTING.md#5-limit-by-address-and-account-holds)).
 
 ### 9.6 Errors and logs
 
@@ -1543,7 +1552,7 @@ all ([`HOSTING.md` §5](../HOSTING.md#5-limit-by-address-and-account-holds)).
   line can be forged.
 - Users holding any role above `standard` are traced on every access, and
   every refusal is traced with its reason
-  ([`HOSTING.md` §12](../HOSTING.md#12-errors-and-logs)).
+  ([`HOSTING.md` §12](../../HOSTING.md#12-errors-and-logs)).
 
 ### 9.7 Shipping
 
@@ -1559,7 +1568,7 @@ origins open to all, tokens bound to no issuer or audience).
 ### 9.8 Left to the host, or to later
 
 - The web server, TLS, the firewall and `php.ini`
-  ([`HOSTING.md`](../HOSTING.md)).
+  ([`HOSTING.md`](../../HOSTING.md)).
 - The forwarded host (`X-Forwarded-Host`) isn't read.
 - Client certificates whose TLS a proxy handles, certificate pinning, and
   limits by route are left for version 1.1 (1.5).
@@ -1763,7 +1772,7 @@ nyuRuns/
   temp/                   what the framework writes (local)
   test/                   the test suite (chapter 13)
   vendor/                 the libraries, installed by Composer (local)
-  docs/                   the documentation; docs/site, its pages and the code reference (made, not tracked)
+  docs/                   the documentation, in docs/en (fr, es); docs/online, its HTML and the code reference (made, not tracked)
   nyuRun                  the command line: php nyuRun <command>
   composer.json, composer.lock
   .env.example            the names of the secrets
@@ -1788,7 +1797,7 @@ preset names), only through the routes declared for them.
 | the libraries | `vendor/` | no | yes |
 | what the framework writes | `temp/` | no | no |
 | the tests, the documents | `test/`, `docs/` | yes | no |
-| the documentation site and the code reference | `docs/site/`, made by `.phpdoc/build.ps1` | no | no |
+| the HTML of the documentation and the code reference | `docs/online/`, made by `.phpdoc/build.ps1` | no | no |
 | the bundles | `dist/` | no | |
 
 A bundle only copies the paths of `Bundle::KEEP_LIST` (`src`, `runs`,
@@ -1814,7 +1823,7 @@ Only the user the web server runs as needs to write there (3.7).
 ```
 runs/<App>/
   Actions.php             the actions, class Actions of nyu\Runs\<App>
-  mods/<Name>Model.php    the models, class <Name> of nyu\Runs\<App>\mods
+  mods/<Name>.php         the models, class <Name> of nyu\Runs\<App>\mods
   input/<action>.json     the inputs of each action
   routes.rte              its own routes
   pages/<name>.html       the pages it replies with
@@ -1922,10 +1931,11 @@ The same rule holds beyond the code:
 - A class opens with a docblock saying what it is and how it's used.
 - A comment says why, not what, and is written in English, like the names.
 - The code reference is built from the docblocks by phpDocumentor
-  (`phpdoc.dist.xml`), in `docs/site/reference`. `pwsh .phpdoc/build.ps1`
-  builds it along with the pages of these documents, written by the
-  framework's own Markdown parser and HTML writer (`.phpdoc/site`): one
-  site in `docs/site`, which git doesn't track.
+  (`phpdoc.dist.xml`), in `docs/online/reference`. `pwsh .phpdoc/build.ps1`
+  builds it along with the pages of these documents in each of their
+  languages (`docs/en`, `fr`, `es`), written by the framework's own
+  Markdown parser and HTML writer (`.phpdoc/site`): one folder in
+  `docs/online`, which git doesn't track, to put online as it is.
 
 ### 12.4 Errors
 
@@ -1958,7 +1968,7 @@ codes aren't audited: they're checked when a change is reviewed.
 
 A contribution is signed off under the Developer Certificate of Origin
 (`git commit -s`), brings its tests, and passes the suite and the audit,
-as [`CONTRIBUTING.md`](../CONTRIBUTING.md) explains. A new or renamed name
+as [`CONTRIBUTING.md`](../../CONTRIBUTING.md) explains. A new or renamed name
 is proposed before it's written, since it changes how the code reads.
 
 ---
@@ -1967,7 +1977,7 @@ is proposed before it's written, since it changes how the code reads.
 
 The suite is made of self-checking PHP scripts, with no dependency beyond
 PHP and its extensions: there's no test framework to install. It holds
-about 4,500 checks, and [`test/README.md`](../test/README.md) has the
+about 4,500 checks, and [`test/README.md`](../../test/README.md) has the
 details.
 
 ### 13.1 Running it
@@ -1988,7 +1998,7 @@ code when a check fails.
 
 | Group | Scripts | Checks |
 |---|---|---|
-| `unit` | 88 | each part on its own: formats, request, router, access, carriers and checks, tokens, limits, logs, response, error handler, documents, images, sounds, mail, the command line |
+| `unit` | 95 | each part on its own: formats, request, router, access, carriers and checks, tokens, limits, logs, response, error handler, documents, images, sounds, mail, the command line |
 | `data` | 24 | the databases: handlers, stores, filters, records, lists, the userbase, the devices, the moves between stores, the runs that use them; on temporary SQLite databases, and on real servers when they're configured |
 | `http` | 1 | whole requests through PHP's built-in web server: statuses, headers, bodies, routes, access, pages, files |
 | `audit` | 1 | the coding conventions across `src/` and `runs/` (12.5) |
