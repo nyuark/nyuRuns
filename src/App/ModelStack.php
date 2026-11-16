@@ -80,7 +80,7 @@ class ModelStack{
 	 * @throws \RuntimeException When the model cannot be created.
 	 */
 	protected function makeLocalModel(String $modelClsName): Object {
-		require_once($this->modelsFldr.DS.$modelClsName.'Model.php');
+		class_exists("\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName);
 		try{
 			$classNme = "\\nyu\\Runs\\".$this->runAppName."\\mods\\".$modelClsName;
 			return new $classNme();
@@ -105,7 +105,7 @@ class ModelStack{
 		$sharPath = RUN_DIR.DS.'Shared'.DS;
 		$shrdFile = $sharPath.ucfirst($appModelName).'Model.php';
 		if(file_exists( $shrdFile )){
-			require_once($shrdFile);
+			class_exists("\\nyu\\Runs\\Shared\\".ucfirst($appModelName));
 			try{
 				$classNme = "\\nyu\\Runs\\Shared\\".$appModelName;
 				$modelIns = new $classNme();

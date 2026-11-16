@@ -14,7 +14,8 @@
 		"psr-4": {
 			"nyu\\": "src/"
 		},
-		"exclude-from-classmap": ["src/Error/handling.php"]
+		"files": ["src/App/loadruns.php"],
+		"exclude-from-classmap": ["src/Error/handling.php", "src/App/loadruns.php"]
 	},
 	"config": {
 		"optimize-autoloader": true
