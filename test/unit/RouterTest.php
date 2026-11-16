@@ -235,6 +235,8 @@ $caseFlg = !is_dir($twinDir.DS.'TWINS');
 checkIdentical('run folder: found whatever the case of its name, as the disk writes it; a name that is not one is none', Array(nyu\App\Controller::findRunFldrNme('ALONE', $twinDir), nyu\App\Controller::findRunFldrNme('alone', $twinDir), nyu\App\Controller::findRunFldrNme('nowhere', $twinDir), nyu\App\Controller::findRunFldrNme('al/one', $twinDir)), Array('Alone', 'Alone', '', ''));
 if( $caseFlg ){
 	mkdir($twinDir.DS.'TWINS');
+	// The Run folders are read once per request: the list read before the twin was made is forgotten
+	nyu\App\Controller::clearRunFoldrs();
 	nyu\Tools\Logger::loadLogsConfig( Array('path'=>inTemporaryDir('twinlogs'), 'mode'=>'BASE', 'pref'=>'Y') );
 	checkIdentical('run folder: two folders differing by their case alone are neither, whatever the case asked', Array(nyu\App\Controller::findRunFldrNme('twins', $twinDir), nyu\App\Controller::findRunFldrNme('Twins', $twinDir), nyu\App\Controller::findRunFldrNme('TWINS', $twinDir)), Array('', '', ''));
 	nyu\Tools\Logger::loadLogsConfig( Array() );
