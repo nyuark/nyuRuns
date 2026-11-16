@@ -449,7 +449,14 @@ class HealthChk{
 			if( $flawText=='' && isset(Checker::AUTH_LIST[$lognAuth]) && !in_array($lognAuth, Checker::PAIR_LIST['httpBasc'], true) ){
 				$flawText = 'the credential check "'.$lognAuth.'" takes no name and password: nobody can sign in through auth/login';
 			}
-			$this->addCheckResult( 'access login', ($flawText=='') ? 'fine' : 'fail', ($flawText=='') ? strval($loginCfg['authWith'] ?? 'htpasswd').' through '.strval($loginCfg['carrWith'] ?? 'jwtToken') : $flawText );
+			// A block naming no check logs in through htpasswd, which is told; one whose tokens come from another server logs nobody in
+			$tokenCfg = $this->findAccessDict( strval($loginCfg['carrConf'] ?? 'jwtToken') );
+			$isNoPriv = strval($loginCfg['carrWith'] ?? 'jwtToken')=='jwtToken' && ($tokenCfg['signAlgo'] ?? '')=='RS256' && trim(strval($tokenCfg['privFile'] ?? ''))=='' && trim(strval($tokenCfg['publFile'] ?? ''))!='';
+			$lognText = $lognAuth.' through '.strval($loginCfg['carrWith'] ?? 'jwtToken');
+			if( trim(strval($loginCfg['authWith'] ?? ''))=='' ){
+				$lognText = $isNoPriv ? 'none: the tokens are issued by another server, auth/login answers 501' : 'htpasswd (by default: the block names no authWith) through '.strval($loginCfg['carrWith'] ?? 'jwtToken');
+			}
+			$this->addCheckResult( 'access login', ($flawText=='') ? 'fine' : 'fail', ($flawText=='') ? $lognText : $flawText );
 		}
 		// The registry holds the names of the blocks in upper case: they are told as the file writes them
 		$blockCas = array_keys( (array)json_decode(strval(@file_get_contents(TOP_DIR.DS.'conf'.DS.'access.json')), true) );
@@ -594,7 +601,7 @@ class HealthChk{
 		if( !$hasAudnc || !$hasIssur ){
 			$this->addCheckResult('token claims '.$blockNmdText, 'warn', $applClef
 				? 'no audience: the tokens of the applications are not bound to this project; "setting setValue accsConf '.$blockNmdText.'.audience" sets it'
-				: 'no issuer or no audience: the tokens are not bound to this project; "setting setValue accsConf '.$blockNmdText.'.issuer" and ".audience" set them');
+				: 'no issuer or no audience: the tokens are not bound to this project; "setting setValue accsConf '.$blockNmdText.'.issuerId" and ".audience" set them');
 			return;
 		}
 		$this->addCheckResult('token claims '.$blockNmdText, 'fine', $applClef ? 'audience '.json_encode($audnVals) : 'issuer '.json_encode($blockVlsList['issuerId']).', audience '.json_encode($audnVals));

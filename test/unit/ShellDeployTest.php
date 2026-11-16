@@ -135,6 +135,8 @@ $jsnVals = runShellAsJson($projDir, Array('install', 'checkAll'));
 checkIdentical('a session cookie sent over plain HTTP in production is told, without failing the check', Array(json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true)['phpSessn']['secureOn'] ?? null, stateOf($jsnVals)['cookie phpSessn'] ?? null, $jsnVals['exit'] ?? null), Array(false, 'warn', 4));
 // The issuer and the audiences of the tokens, the previous key, the audiences of the application keys
 checkIdentical('tokens bound to no project are told, without failing the check', Array(stateOf($jsnVals)['token claims jwtToken'] ?? null, $jsnVals['exit'] ?? null), Array('warn', 4));
+// The hint of the row names the key as "setting setValue" takes it
+checkPregMatch('tokens bound to nothing: the hint names issuerId, the key that is written', strval(array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'found', 'check')['token claims jwtToken'] ?? ''), '/"setting setValue accsConf jwtToken\.issuerId" and "\.audience" set them$/');
 callShellArray($projDir, Array('setting', 'setValue', 'accsConf', 'jwtToken.issuerId', 'https://auth.example.org'));
 callShellArray($projDir, Array('setting', 'setValue', 'accsConf', 'jwtToken.audience', '["api.example.org"]'));
 checkIdentical('once the issuer and the audiences are set, the row is fine', array_column(runShellAsJson($projDir, Array('install', 'checkAll'))['rows'] ?? Array(), 'found', 'check')['token claims jwtToken'] ?? null, 'issuer "https:\/\/auth.example.org", audience ["api.example.org"]');
@@ -269,6 +271,7 @@ if( function_exists('openssl_pkey_new') ){
 	$axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), true);
 	checkIdentical('dataServ: the public key copied and alone, the claims asked, a login with no credential check, no users', Array($axsVals['jwtToken']['signAlgo'] ?? null, $axsVals['jwtToken']['publFile'] ?? null, $axsVals['jwtToken']['external'] ?? null, array_key_exists('privFile', $axsVals['jwtToken'] ?? Array()), $axsVals['jwtToken']['issuerId'] ?? null, $axsVals['jwtToken']['audience'] ?? null, array_key_exists('authWith', $axsVals['loginSet'] ?? Array()), fetchInProject($projDir, 'conf/keys/jwtToken.pub'), is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), is_file($projDir.DS.'conf'.DS.'users.lst')),
 		Array('RS256', 'conf/keys/jwtToken.pub', true, false, 'https://auth.example.org', Array('api.example.org'), false, $srcPubl, false, false));
+	checkIdentical('dataServ: the login row says nobody logs in here', array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['access login'] ?? null, 'none: the tokens are issued by another server, auth/login answers 501');
 	checkIdentical('dataServ: the check reads it back, its key fine', Array(stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null, stateOf($jsnVals)['token keys jwtToken'] ?? null), Array('fine', 'dataServ', 'fine'));
 	$jsnVals = runShellAsJson($projDir, Array('install', 'complete', '--sendWith=none', '--projKind=dataServ', '--noPrompt'));
 	checkIdentical('dataServ again without a question: the key in use kept', Array(fetchInProject($projDir, 'conf/keys/jwtToken.pub'), stateOf($jsnVals)['profile'] ?? null), Array($srcPubl, 'fine'));
@@ -307,6 +310,8 @@ $axsVals = json_decode(strval(fetchInProject($projDir, 'conf/access.json')), tru
 checkIdentical('openSite: no store, no users, no token keys nor secrets, the map pointing at statics, read back by the check', Array(array_key_exists('authWith', $axsVals['loginSet'] ?? Array()), is_file($projDir.DS.'conf'.DS.'users.lst'), is_file($projDir.DS.'conf'.DS.'keys'.DS.'jwtToken.key'), parse_ini_string(strval(fetchInProject($projDir, '.env')), false, INI_SCANNER_RAW)['NYU_API_KEY'] ?? '', json_decode(strval(fetchInProject($projDir, 'conf/doorways.lst')), true)['doorways'] ?? null, stateOf($jsnVals)['profile'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['profile'] ?? null),
 	Array(false, false, false, '', Array(Array('basePath'=>'/', 'presetId'=>'statics')), 'fine', 'openSite'));
 if( extension_loaded('openssl') ){
+	// A login block naming no check: the row says the login falls back on htpasswd
+	checkIdentical('a login block without authWith: htpasswd, told as the default', array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['access login'] ?? null, 'htpasswd (by default: the block names no authWith) through jwtToken');
 	// An open site reads no token: the keys it has none of are not asked for
 	checkIdentical('openSite: the token keys are asked of nobody', Array(stateOf($jsnVals)['token keys jwtToken'] ?? null, array_column($jsnVals['rows'] ?? Array(), 'found', 'check')['token keys jwtToken'] ?? null), Array('fine', 'none, and none needed: no login, and every preset served is open'));
 	writeInProject($projDir, 'conf/doorways.lst', '{ "doorways": [ { "basePath": "/", "presetId": "statics" }, { "basePath": "/app", "presetId": "secure" } ] }');
