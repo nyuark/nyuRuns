@@ -14,6 +14,9 @@ if( !defined('RUN_DIR') ){
 }
 define('TST_DIR', TOP_DIR.DS.'test');
 define('TMP_DIR', sys_get_temp_dir().DS.'nyuruns_test_'.getmypid());
+// A folder of that name is one an earlier process left (a script stopped before its end, or a file still open when it was
+// removed), under a number the system gave again: the run starts from an empty one, never from the files of another
+dropTestFolder(TMP_DIR);
 
 require TOP_DIR.DS.'vendor'.DS.'autoload.php';
 
