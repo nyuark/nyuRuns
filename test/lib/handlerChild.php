@@ -120,6 +120,12 @@ if( $runMode=='memreply' ){
 	exit(0);
 }
 
+if( $runMode=='silenced' ){
+	// A warning silenced on purpose before the handler is installed, as the read of a config cache that is not there:
+	// it stays the last error of the request, and nothing is to be made of it at shutdown
+	$noneTxt = @file_get_contents($logsDir.DS.'nothing-here.cache');
+}
+
 installHandler();
 
 if( $runMode=='warning' ){
@@ -150,6 +156,8 @@ if( $runMode=='warning' ){
 }elseif( $runMode=='memfatal' ){
 	ini_set('memory_limit', '16M');
 	$bigText = str_repeat('x', 64*1024*1024);
+}elseif( $runMode=='silenced' ){
+	echo 'execution continued';
 }elseif( $runMode=='nologger' ){
 	trigger_error('shown inline', E_USER_NOTICE);
 }

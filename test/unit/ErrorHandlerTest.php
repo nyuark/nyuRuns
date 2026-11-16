@@ -29,6 +29,10 @@ checkIdentical('warning: two log lines', count($outcome['logs']), 2);
 checkPregMatch('warning: user warning line', $outcome['logs'][0] ?? null, '/^\[\d{4}\] \[WARNING\] E_USER_WARNING: custom warning in .*handlerChild\.php on line \d+$/');
 checkPregMatch('warning: PHP warning line', $outcome['logs'][1] ?? null, '/^\[\d{4}\] \[WARNING\] E_WARNING: Undefined array key "missing" in .*handlerChild\.php on line \d+$/');
 
+// A warning silenced on purpose (@), the last error of the request : nothing is logged at shutdown, nothing shown
+$outcome = handlerOf('silenced');
+checkIdentical('silenced warning: the run goes on, nothing is logged nor shown', Array(trim($outcome['text']), $outcome['logs']), Array('execution continued', Array()));
+
 // Uncaught exception : logged at ERROR under its own label, with class and code, nothing shown
 $outcome = handlerOf('exception');
 checkIdentical('exception: one log line', count($outcome['logs']), 1);

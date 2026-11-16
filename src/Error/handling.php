@@ -171,6 +171,10 @@ function treatLastError(): Void
         return;
 
     $wasFatal = in_array($lastErro['type'], Array(E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR));
+    // What was not fatal was handled when it was raised, or silenced on purpose (@): nothing is left to do at shutdown
+    if( !$wasFatal ){
+        return;
+    }
     if( $wasFatal && !headers_sent() ){
         http_response_code(500);
     }
