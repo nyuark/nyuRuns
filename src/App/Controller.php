@@ -22,7 +22,7 @@ class Controller{
 	protected $appsFolder;
 	// The names whose folders differ by their case alone, already logged as errors : once each
 	protected static $twinsNoted = Array();
-	// The folder names of each folder of Runs, by its path: read once for the request (see findRunFldrNme)
+	// The names found in each folder of Runs, by its path: read once for the request, a name checked to be a folder when it matches (see findRunFldrNme)
 	protected static $runFolders = Array();
 	protected $inputsRegr;
 	protected $accessRegr;
@@ -207,17 +207,14 @@ class Controller{
 		if( $runsPath==='' || !preg_match('/^[A-Za-z0-9]+$/D', $appNameToRun) ){
 			return '';
 		}
-		// The folders of the Runs are read once for the request, every lookup then served from that list
+		// The names in the folder of the Runs are read once for the request, in a single listing: only those matching are checked to be folders
 		if( !isset(self::$runFolders[$runsPath]) ){
-			self::$runFolders[$runsPath] = Array();
-			foreach( (array)glob($runsPath.DS.'*', GLOB_ONLYDIR) as $onePth ){
-				self::$runFolders[$runsPath][] = basename(strval($onePth));
-			}
+			self::$runFolders[$runsPath] = array_values( array_diff((array)@scandir($runsPath), Array('.', '..')) );
 		}
 		$findList = Array();
 		foreach( self::$runFolders[$runsPath] as $onePth ){
-			if( strcasecmp($onePth, $appNameToRun)===0 ){
-				$findList[] = $onePth;
+			if( strcasecmp(strval($onePth), $appNameToRun)===0 && is_dir($runsPath.DS.$onePth) ){
+				$findList[] = strval($onePth);
 			}
 		}
 		// Two folders whose names differ by their case alone: neither, the case of a URL never choosing between them
