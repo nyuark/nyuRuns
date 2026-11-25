@@ -856,7 +856,7 @@ gives the same statuses and the same data for the same requests.
 
 | Framework | Version | Database layer |
 |---|---|---|
-| nyuRuns | 1.0 | its models, `DBLst` and `DBRec` |
+| nyuRuns | 1.0, final bundle | its models, `DBLst` and `DBRec` |
 | Slim | 4.15.3 | plain PDO, PHP-DI |
 | Flight | 3.19.5 | its own PDO wrapper |
 | Laravel | 13.40.0 | Eloquent models |
@@ -879,49 +879,97 @@ by a token (HS256). Ten scenarios:
 | C5 | create task | in a project, with its fields checked and the assignee a member of it |
 | C6 | add comment | to a task, read back |
 
-**The measurement.** Each scenario is called 1,000 times, one request at
-a time, after 100 warm-up calls. The figure is the CPU time used by the
-web server (which runs PHP) divided by the number of requests: what a
-request costs the server, regardless of network wait. MySQL's CPU time is
-measured separately.
+**The machines.** The server: an Intel NUC, Core i3-7100U (2 cores,
+4 threads, 2.4 GHz), 4 GB of memory, Ubuntu 26.04. PHP 8.5.4 through
+PHP-FPM, a static pool of 8 workers, OPcache on without checking the
+files; MySQL 8.4 on the same machine (512 MB buffer pool, no binary log).
+Each framework ran behind nginx, then behind Apache (event MPM), in its
+production mode: optimised class maps, warmed caches, no debug. nyuRuns
+ran as its final bundle builds it: `PROD`, `MINI` logs, config and table
+caches on. The load came from a second machine, over wired gigabit.
 
-**The machine.** One computer: AMD Ryzen 5 5500 (6 cores), 16 GB of
-memory, Windows 11. PHP 8.5.12 in Apache, OPcache on without checking the
-files (as in production), JIT off; MySQL 5.7.24. Every framework ran in
-its production mode: optimised class maps, warmed caches, no debug.
-nyuRuns ran the way its final bundle builds it: `PROD`, `MINI` logs,
-config and table caches on.
+**The measurement.** k6 keeps a fixed number of clients busy, each sending
+its next request as soon as the last is answered, over HTTP/1.1
+keep-alive. A reply other than 2xx counts as failed. Each run is
+measured for 30 s, after a 10 s warm-up when a route starts and 3 s
+between load levels, at 1, 8 and 32 clients. The whole series ran three
+times, the frameworks in a new random order each time, the databases
+reseeded before each framework; every figure is the median of the three.
+The CPU is read on the server: the time used by PHP-FPM, MySQL and the
+web server during a run, divided by its requests. The load machine never
+went past 62% of its own CPU.
 
 ### 7.2 Results
 
-CPU time of the web server per request, in milliseconds, from the run of
-7 November 2026 (1,000 requests per scenario, none failed):
+Requests per second, and the time within which 99% of them were answered
+(p99), behind nginx, from the run of 24–25 November 2026.
+
+**One client at a time**: requests per second (p99 in ms)
 
 | Scenario | Flight | nyuRuns | Slim | Symfony | Laravel |
 |---|---|---|---|---|---|
-| L1 list | 1.92 | 2.50 | 2.09 | 5.20 | 7.92 |
-| L2 read | 1.84 | 2.13 | 2.38 | 4.80 | 6.61 |
-| L3 create | 1.89 | 3.20 | 3.05 | 6.78 | 8.06 |
-| L4 update | 2.16 | 2.67 | 3.17 | 6.95 | 7.86 |
-| C1 my projects | 1.70 | 2.45 | 2.53 | 5.52 | 7.39 |
-| C2 tasks, filtered | 1.95 | 2.73 | 2.56 | 8.73 | 9.91 |
-| C3 project stats | 2.13 | 2.83 | 2.59 | 6.14 | 7.70 |
-| C4 task with comments | 1.98 | 2.92 | 2.42 | 6.39 | 9.63 |
-| C5 create task | 2.20 | 2.58 | 3.11 | 7.81 | 8.94 |
-| C6 add comment | 2.02 | 2.66 | 2.84 | 7.19 | 9.69 |
-| **Average** | **1.98** | **2.67** | **2.67** | **6.55** | **8.37** |
-| MySQL, average | 1.34 | 1.47 | 1.30 | 1.45 | 1.83 |
+| L1 list | 430 (3.8) | 318 (4.5) | 357 (4.3) | 203 (7.7) | 120 (11.6) |
+| L2 read | 500 (3.4) | 393 (3.9) | 429 (3.8) | 260 (6.7) | 162 (9.6) |
+| L3 create | 309 (5.6) | 265 (6.6) | 241 (6.7) | 143 (9.6) | 117 (12.2) |
+| L4 update | 290 (5.7) | 235 (7.5) | 236 (7.5) | 180 (7.4) | 134 (10.5) |
+| C1 my projects | 436 (3.8) | 346 (4.6) | 381 (4.1) | 204 (7.1) | 152 (9.2) |
+| C2 tasks, filtered | 330 (4.4) | 264 (6.8) | 262 (6.2) | 117 (11.8) | 98 (11.7) |
+| C3 project stats | 284 (5.8) | 235 (6.0) | 267 (6.8) | 146 (9.6) | 120 (12.0) |
+| C4 task with comments | 331 (4.9) | 257 (7.0) | 309 (4.8) | 137 (10.1) | 91 (13.8) |
+| C5 create task | 254 (7.1) | 219 (6.9) | 204 (7.9) | 105 (12.6) | 91 (14.3) |
+| C6 add comment | 262 (6.8) | 222 (7.4) | 209 (6.6) | 109 (12.0) | 90 (14.1) |
+
+**32 clients at once**: requests per second (p99 in ms)
+
+| Scenario | Flight | nyuRuns | Slim | Symfony | Laravel |
+|---|---|---|---|---|---|
+| L1 list | 1,407 (27) | 1,041 (36) | 1,200 (32) | 551 (67) | 313 (118) |
+| L2 read | 1,785 (21) | 1,318 (29) | 1,475 (26) | 712 (52) | 428 (86) |
+| L3 create | 1,014 (45) | 992 (44) | 865 (49) | 429 (87) | 334 (110) |
+| L4 update | 914 (48) | 835 (50) | 840 (49) | 479 (77) | 352 (104) |
+| C1 my projects | 1,512 (25) | 1,147 (33) | 1,270 (30) | 549 (67) | 395 (94) |
+| C2 tasks, filtered | 1,066 (36) | 810 (46) | 797 (47) | 300 (122) | 251 (145) |
+| C3 project stats | 869 (44) | 715 (53) | 796 (48) | 395 (92) | 307 (117) |
+| C4 task with comments | 1,055 (35) | 799 (46) | 953 (39) | 376 (97) | 240 (152) |
+| C5 create task | 813 (55) | 784 (52) | 712 (56) | 303 (121) | 259 (140) |
+| C6 add comment | 824 (52) | 796 (52) | 761 (53) | 317 (115) | 261 (139) |
+
+The server is fully busy from 8 clients: going to 32 adds waiting time,
+not requests (nyuRuns gains less than 1% on every scenario).
+
+**CPU per request**, in ms, the mean of the ten scenarios at 32 clients:
+
+| | Flight | nyuRuns | Slim | Symfony | Laravel |
+|---|---|---|---|---|---|
+| PHP | 1.61 | 2.63 | 2.56 | 7.76 | 10.66 |
+| MySQL | 1.87 | 1.52 | 1.49 | 1.68 | 2.21 |
+| Web server | 0.22 | 0.23 | 0.23 | 0.26 | 0.26 |
+| **All, nginx** | **3.70** | **4.39** | **4.28** | **9.70** | **13.13** |
+| All, Apache | 3.81 | 4.62 | 4.50 | 9.96 | 13.42 |
+
+**Behind Apache**, the web server costs about 0.43 ms per request against
+0.24 ms for nginx, and PHP's time stays the same. Those 0.2 ms weigh more
+on the light frameworks: nyuRuns serves 3.8 to 7.1% fewer requests than
+behind nginx, and its ratios move by a hundredth or two (1.03 times Slim,
+1.21 times Flight, 0.46 times Symfony, 0.34 times Laravel). The ranking
+doesn't change.
 
 What it shows:
 
-- **nyuRuns costs what a micro-framework costs**: as much as Slim, and
-  about a third more than Flight, which does the least around a request.
-- **It costs about 2.5 times less than Symfony, and 3 times less than
-  Laravel**, while doing what they do for these applications: routing,
-  input validation, signed tokens, models instead of queries.
-- **The database costs about the same for everyone**, with Laravel a
-  little higher. nyuRuns sends the same statements the others send (one to
-  read a task, five for a task with its comments).
+- **nyuRuns costs what a micro-framework costs**: 1.02 times Slim and
+  1.19 times Flight, which does the least around a request.
+- **Scenario by scenario against Slim**, nyuRuns serves more on C2 and on three
+  writes (L3, C5, C6), about the same on L4 (0.6% fewer), and 9.6 to
+  16.2% fewer on the other reads (L1, L2, C1, C3, C4).
+- **Flight stays ahead**: nyuRuns serves 17.7 to 26.2% fewer requests on
+  the reads, 2.1 to 3.5% fewer on three writes (L3, C5, C6), and 8.7%
+  fewer on the update (L4).
+- **Symfony and Laravel cost 2.21 and 2.99 times more CPU**: nyuRuns serves
+  1.74 to 3.33 times their requests, while doing what they do for these
+  applications: routing, input validation, signed tokens, models instead
+  of queries.
+- **MySQL costs about the same for everyone**, Laravel a little more.
+  Flight's figure is raised by its C5 (7.4).
 
 ### 7.3 How nyuRuns got there
 
@@ -939,23 +987,37 @@ without changing what it does:
 
 The average went from 6.03 ms down to 2.67 ms: less than half.
 
+Those figures come from the Windows machine of 5 and 7 November, one
+request at a time. The run of 24–25 November measured the result again,
+on Linux and under load, with everything added since: each run's own
+routes, a context for each action, the security revision, the renaming.
+
 ### 7.4 What these figures don't tell you
 
-- **One machine, one system.** Windows, with PHP running inside Apache.
-  Another system, PHP-FPM or another web server would give other figures,
-  and the frameworks might rank differently.
-- **One request at a time.** There's no load test: the figures are what a
-  request costs, not how many requests a server can handle at once. A
-  first load test was run on 5 November, but on this machine most of its
-  requests failed for lack of connections, so its figures aren't used.
-- **The time a client waits** (14 to 28 ms here, depending on the
-  framework) is mostly this machine's connection delay, the same for all,
-  so it's left out of the comparison.
+- **A machine below the reference server.** Two cores and 4 GB, against
+  six cores and 16 GB (Requirements, 7.3). The ratios between frameworks
+  hold on any machine; the requests per second are a lower bound, not the
+  goals P-07 and P-08.
+- **32 clients at most.** The goals ask for 50; past 8 clients this
+  machine only adds waiting time.
+- **PHP 8.5, not 8.2.** The oldest version nyuRuns supports wasn't
+  measured.
+- **Memory wasn't measured**, so P-09 stays open.
 - **Two applications.** Other kinds of work (large documents, images,
   many joins) weren't measured.
-- **Before the latest changes.** Since 7 November, nyuRuns has gained its
-  own routes per run, a context for each action, a security revision and
-  codes by mail. These figures haven't been measured again since.
+- **16 failed requests**, out of 15.4 million, all behind Apache, at 32
+  clients, on POST and PATCH only: connections the server closed as the
+  next request went out, most likely Apache's event MPM closing
+  kept-alive connections. Every framework had some (nyuRuns 5, Symfony 4,
+  Flight 3, Slim 2, Laravel 2), nginx had none. They come from the stack,
+  and no figure changes.
+- **One anomaly left unexplained.** C5 was run again on 25 November for
+  nyuRuns and Flight: the figures held within 2% (nyuRuns 780 and 779 per
+  second behind nginx, against 784). Flight's C5 still costs MySQL about
+  1 ms more behind nginx than behind Apache, for the same statements, with
+  no lock waits; turning MySQL's redo-log spinning off changed nothing.
+  It moves Flight's nginx average by about 1% and doesn't touch nyuRuns,
+  whose MySQL time is the same on both stacks.
 
 ---
 

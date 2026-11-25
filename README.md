@@ -17,7 +17,7 @@ mail, logs, and a command line to install, configure, test and ship your
 project.
 
 And it stays light. A request costs about as much CPU as with Slim, and
-well under half of what Symfony or Laravel need for the same work
+under half of what Symfony or Laravel need for the same work
 ([measured on one machine](docs/en/funcspecs.md#7-performance-results)).
 
 ## Requirements

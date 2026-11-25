@@ -97,6 +97,9 @@ names stay too: nyuRuns, nyuTron, makerun. The tutorial's sample data
 | 64 | preflight (CORS) | | pré-requête | petición previa | |
 | 65 | join (of tables) | | jointure | unión | |
 | 66 | firewall | | pare-feu | cortafuegos | |
+| 67 | lower bound (a figure from a machine below the reference server) | | borne basse | cota inferior | never « minimum » / « mínimo », which reads as a guarantee |
+| 68 | warm-up (before a measured run) | | préchauffage | calentamiento | |
+| 69 | load level (a number of clients at once) | | palier de charge | nivel de carga | |
 
 ## Typography
 

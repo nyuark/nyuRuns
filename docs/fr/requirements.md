@@ -100,7 +100,7 @@ Chaque but mène à des objectifs que l’on peut vérifier :
 | O4 | Les fichiers sont une source de données comme les bases, configurée dans les réglages | 3 | Version 1.1 ; pour l’instant, les fichiers sont lus et écrits comme des documents par une action |
 | O5 | Une première installation tient en une commande et n’a besoin d’aucune base de données | 2 | Atteint |
 | O6 | Un service passe d’un fichier des utilisateurs à une base de données, d’une base à plusieurs, et d’une application à plusieurs qui travaillent ensemble, sans réécrire son code | 2 | Atteint |
-| O7 | Une requête ne coûte pas plus de CPU qu’avec les micro-frameworks habituels, et bien moins qu’avec les frameworks complets | 4 | Atteint (chapitre 7), mesuré le 7 novembre, avant le cycle de vie et les routes des runs, la révision de sécurité et le renommage ; pas mesuré depuis |
+| O7 | Une requête ne coûte pas plus de CPU qu’avec les micro-frameworks habituels, et bien moins qu’avec les frameworks complets | 4 | Atteint (chapitre 7), mesuré sous Linux les 24 et 25 novembre 2026, après le cycle de vie et les routes des runs, la révision de sécurité et le renommage |
 | O8 | La connexion, les rôles, les limites de tentatives, les codes à deux facteurs, les tokens signés et le cycle de vie des comptes viennent avec le framework, sans bibliothèque à ajouter | 5 | Atteint |
 | O9 | Les documents, les images, les sons et les e-mails sont lus, écrits et envoyés par le framework lui-même | 5 | Atteint |
 | O10 | Un projet est installé, configuré, vérifié, testé et livré depuis une seule ligne de commande | 5 | Atteint |
@@ -237,8 +237,8 @@ de méthodes, et son conteneur ne se met pas en travers des applications.
   échange est une requête et sa réponse, et les sockets sont laissés à la
   version 1.1.
 - **Un service qui doit tenir une très forte charge sur un seul serveur,
-  sans mesures à lui** : nyuRuns a été mesuré requête par requête, pas sous
-  charge (chapitre 7).
+  sans mesures à lui** : nyuRuns n’a été mesuré sous charge que sur une
+  petite machine, bien en dessous du serveur de référence (chapitre 7).
 
 ---
 
@@ -473,21 +473,22 @@ lourds. Il ne doit pas payer ce côté complet par le coût de chaque requête.
 
 | # | Objectif | 1.0 |
 |---|---|---|
-| P-01 | Une requête coûte au serveur au plus 1,2 fois le CPU qu’elle coûte avec Slim, sur la même machine, pour le même travail | Atteint : 1,0 fois (2,67 ms chacune ; Flight 1,98 ms) |
-| P-02 | Une requête coûte au plus la moitié du CPU qu’elle coûte avec Symfony, sur la même machine, pour le même travail | Atteint : 0,41 fois (6,55 ms pour Symfony ; 8,37 ms pour Laravel) |
+| P-01 | Une requête coûte au serveur au plus 1,2 fois le CPU qu’elle coûte avec Slim, sur la même machine, pour le même travail | Atteint : 1,02 fois (4,39 ms contre 4,28 ms pour Slim ; Flight 3,70 ms) |
+| P-02 | Une requête coûte au plus la moitié du CPU qu’elle coûte avec Symfony, sur la même machine, pour le même travail | Atteint, de peu : 0,45 fois, pour un objectif de 0,5 (9,70 ms pour Symfony ; Laravel 13,13 ms) |
 | P-03 | Elle n’envoie pas plus d’instructions à la base de données qu’eux pour le même travail | Atteint : une pour lire un enregistrement, cinq pour un enregistrement avec ses relations dans le cas complexe du banc d’essai |
 | P-04 | Une requête ne charge que ce qu’elle utilise : aucune connexion sans lecture de données, aucun modèle sans qu’une action le demande | Atteint |
 | P-05 | Ce que le framework lit à chaque requête (les réglages, les routes, les tables) est lu une fois en production, puis depuis un cache | Atteint : `CNF_CACH`, `TBL_CACH`, activés par la copie de production |
 | P-06 | Les grosses données sont lues et envoyées morceau par morceau, jamais gardées entières en mémoire | En partie : les fichiers et les valeurs binaires sont envoyés morceau par morceau ; un corps de requête est gardé entier, jusqu’à `REQ_SIZE`, et une valeur binaire jusqu’à sa limite, entre le flux et la base de données |
-| P-07 | Sur le serveur de référence (7.3), avec 50 clients à la fois, les lectures légères du banc d’essai (une liste, un enregistrement, les projets d’un utilisateur) traitent 800 requêtes par seconde ou plus, avec le 1 % le plus lent servi en moins de 150 ms et aucune en échec | Pas encore mesuré |
-| P-08 | Sur le serveur de référence, avec 50 clients à la fois, les écritures du banc d’essai (un enregistrement créé, une tâche, un commentaire) traitent 500 requêtes par seconde ou plus, dans les mêmes conditions | Pas encore mesuré |
+| P-07 | Sur le serveur de référence (7.3), avec 50 clients à la fois, les lectures légères du banc d’essai (une liste, un enregistrement, les projets d’un utilisateur) traitent 800 requêtes par seconde ou plus, avec le 1 % le plus lent servi en moins de 150 ms et aucune en échec | Pas mesuré sur le serveur de référence. Sur une machine plus petite (7.3), une borne basse : à 32 clients, les lectures légères dépassent 1 040 requêtes par seconde, le 1 % le plus lent servi en 36,4 ms au plus, aucune en échec |
+| P-08 | Sur le serveur de référence, avec 50 clients à la fois, les écritures du banc d’essai (un enregistrement créé, une tâche, un commentaire) traitent 500 requêtes par seconde ou plus, dans les mêmes conditions | Pas mesuré sur le serveur de référence. Sur la même machine plus petite, une borne basse : à 32 clients, les écritures dépassent 780 requêtes par seconde, le 1 % le plus lent servi en 52 ms au plus, aucune en échec derrière nginx |
 | P-09 | Une requête d’API utilise au plus 4 Mo de mémoire à son pic | Pas encore mesuré |
 
 Les objectifs relatifs (P-01, P-02) valent sur n’importe quelle machine.
-Les chiffres de la 1.0 viennent de la série du 7 novembre 2026, sur une
-seule machine, une requête à la fois, avant le cycle de vie et les routes
-des runs, la révision de sécurité et le renommage, et n’ont pas été mesurés
-à nouveau depuis. La méthode, les résultats scénario par scénario et leurs
+Les chiffres de la 1.0 viennent de la série des 24 et 25 novembre 2026 :
+un Intel NUC sous Linux, derrière nginx puis derrière Apache, à 1, 8 et
+32 clients à la fois, chaque chiffre étant la médiane de trois répétitions.
+Ce qu’elle ne couvre pas : PHP 8.2 (la série a utilisé la 8.5), le serveur
+de référence, 50 clients, et la mémoire par requête. La méthode, les résultats scénario par scénario et leurs
 limites sont dans les
 [Spécifications fonctionnelles, chapitre 7](funcspecs.md#7-résultats-de-performance).
 
@@ -496,16 +497,21 @@ limites sont dans les
 Un chiffre en requêtes par seconde ne veut rien dire sans sa machine. P-07
 à P-09 sont fixés pour celle-ci :
 
-| | Serveur de référence |
-|---|---|
-| Processeur | 6 cœurs, de la classe d’un AMD Ryzen 5 5500 |
-| Mémoire | 16 Go |
-| Système | Linux |
-| PHP | 8.2 ou suivant, par PHP-FPM, OPcache activé sans vérification des fichiers, JIT désactivé |
-| Base de données | MySQL, sur la même machine |
-| nyuRuns | sa copie `final` : réglages de production, caches de la configuration et des tables activés |
+| | Serveur de référence | La machine mesurée |
+|---|---|---|
+| Processeur | 6 cœurs, de la classe d’un AMD Ryzen 5 5500 | Intel Core i3-7100U, 2 cœurs / 4 threads, 2,4 GHz : en dessous |
+| Mémoire | 16 Go | 4 Go, 3,2 utilisables : en dessous |
+| Système | Linux | Ubuntu 26.04 |
+| PHP | 8.2 ou suivant, par PHP-FPM, OPcache activé sans vérification des fichiers, JIT désactivé | 8.5.4, par PHP-FPM, OPcache sans vérification des fichiers |
+| Base de données | MySQL, sur la même machine | MySQL 8.4, sur la même machine |
+| nyuRuns | sa copie `final` : réglages de production, caches de la configuration et des tables activés | `bundles final`, `CNF_CACH` et `TBL_CACH` activés |
 
-**D’où viennent les chiffres.** Une requête coûtait 2,67 ms de CPU dans le
+Le logiciel correspond ; le matériel est loin du compte, avec environ un
+tiers du processeur. Les chiffres de cette machine sont donc une borne
+basse pour P-07 et P-08, jamais une mesure de ceux-ci.
+
+**D’où viennent les chiffres.** Les objectifs ont été fixés d’après la
+série du 7 novembre, sous Windows : une requête coûtait 2,67 ms de CPU dans le
 serveur web et 1,47 ms dans MySQL, environ 4,1 ms en tout. Six cœurs
 entièrement occupés répondraient à quelque 1 450 requêtes par seconde. Les
 objectifs de charge en prennent à peu près la moitié, pour laisser de la
@@ -523,8 +529,10 @@ pas : leur objectif est donc fixé plus bas.
   base.
 
 Un objectif est fixé avant d’être mesuré, pour qu’une mesure puisse
-l’atteindre, ou non. Les objectifs de charge sont les prochains : le
-premier test de charge, lancé sous Windows, a échoué faute de connexions.
+l’atteindre, ou non. Les objectifs de charge ont maintenant une première
+borne basse, sur une machine en dessous du serveur de référence ; la mesure
+elle-même, à 50 clients sur cette classe de machine, reste à faire, tout
+comme la mémoire par requête (P-09).
 
 ---
 

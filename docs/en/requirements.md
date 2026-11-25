@@ -94,7 +94,7 @@ Each aim leads to objectives that can be checked:
 | O4 | Files are a data source just like databases, set up in the settings | 3 | Version 1.1; for now, files are read and written as documents by an action |
 | O5 | A first install takes one command and needs no database | 2 | Met |
 | O6 | A service moves from a users file to a database, from one database to several, and from one application to several working together, without rewriting its code | 2 | Met |
-| O7 | A request costs no more CPU than with the usual micro-frameworks, and well below the full-stack ones | 4 | Met (chapter 7), measured on 7 November, before the Run lifecycle and routes, the security revision and the renaming; not measured since |
+| O7 | A request costs no more CPU than with the usual micro-frameworks, and well below the full-stack ones | 4 | Met (chapter 7), measured on Linux on 24–25 November 2026, after the Run lifecycle and routes, the security revision and the renaming |
 | O8 | Signing in, roles, limits on attempts, two-factor codes, signed tokens and the account life cycle come with the framework, with no library to add | 5 | Met |
 | O9 | Documents, images, sounds and mail are read, written and sent by the framework itself | 5 | Met |
 | O10 | A project is installed, configured, checked, tested and shipped from one command line | 5 | Met |
@@ -221,8 +221,8 @@ stays out of the applications' way.
 - **Real-time exchanges** (chats, live feeds): every exchange is a request
   and its reply, and sockets are left for version 1.1.
 - **A service that must handle very heavy load on one server, without
-  measurements of its own**: nyuRuns was measured request by request, not
-  under load (chapter 7).
+  measurements of its own**: nyuRuns was measured under load only on a
+  small machine, well below the reference server (chapter 7).
 
 ---
 
@@ -456,21 +456,22 @@ must not pay for that completeness in the cost of each request.
 
 | # | Goal | 1.0 |
 |---|---|---|
-| P-01 | A request costs the server at most 1.2 times the CPU it costs with Slim, on the same machine, for the same work | Met: 1.0 times (2.67 ms each; Flight 1.98 ms) |
-| P-02 | A request costs at most half the CPU it costs with Symfony, on the same machine, for the same work | Met: 0.41 times (6.55 ms for Symfony; 8.37 ms for Laravel) |
+| P-01 | A request costs the server at most 1.2 times the CPU it costs with Slim, on the same machine, for the same work | Met: 1.02 times (4.39 ms against 4.28 ms for Slim; Flight 3.70 ms) |
+| P-02 | A request costs at most half the CPU it costs with Symfony, on the same machine, for the same work | Met, by a small margin: 0.45 times, for a goal of 0.5 (9.70 ms for Symfony; Laravel 13.13 ms) |
 | P-03 | It sends the database no more statements than they do for the same work | Met: one to read a record, five for a record with its relations in the benchmark's complex case |
 | P-04 | A request loads only what it uses: no connection unless data is read, no model unless an action asks for it | Met |
 | P-05 | What the framework reads on every request (settings, routes, tables) is read once in production, then from a cache | Met: `CNF_CACH`, `TBL_CACH`, set by the production copy |
 | P-06 | Large data is read and sent piece by piece, never held whole in memory | Partly met: files and binary values are sent piece by piece; a request body is held whole, up to `REQ_SIZE`, and a binary value up to its limit, between the flux and the database |
-| P-07 | On the reference server (7.3), with 50 clients at once, the benchmark's light reads (a list, a record, a user's projects) handle 800 requests per second or more, with the slowest 1% answered in under 150 ms and none failed | Not measured yet |
-| P-08 | On the reference server, with 50 clients at once, the benchmark's writes (a record created, a task, a comment) handle 500 requests per second or more, under the same conditions | Not measured yet |
+| P-07 | On the reference server (7.3), with 50 clients at once, the benchmark's light reads (a list, a record, a user's projects) handle 800 requests per second or more, with the slowest 1% answered in under 150 ms and none failed | Not measured on the reference server. On a smaller machine (7.3), a lower bound: at 32 clients, the light reads run above 1,040 requests per second, the slowest 1% answered in 36.4 ms at most, none failed |
+| P-08 | On the reference server, with 50 clients at once, the benchmark's writes (a record created, a task, a comment) handle 500 requests per second or more, under the same conditions | Not measured on the reference server. On the same smaller machine, a lower bound: at 32 clients, the writes run above 780 requests per second, the slowest 1% answered in 52 ms at most, none failed behind nginx |
 | P-09 | An API request uses at most 4 MB of memory at its peak | Not measured yet |
 
-The relative goals (P-01, P-02) apply on any machine. The 1.0 figures come
-from the run of 7 November 2026, on one machine, one request at a time,
-before the Run lifecycle and routes, the security revision and the
-renaming, and haven't been measured since. The method, the scenario-by-scenario
-results and their limits are in the
+The relative goals (P-01, P-02) apply on any machine. The 1.0 figures
+come from the run of 24–25 November 2026: an Intel NUC under Linux, behind
+nginx and behind Apache, at 1, 8 and 32 clients at once, each figure the
+median of three repeats. What it doesn't cover: PHP 8.2 (the run used
+8.5), the reference server, 50 clients, and memory per request. The
+method, the scenario-by-scenario results and their limits are in the
 [Functional Specifications, chapter 7](funcspecs.md#7-performance-results).
 
 ### 7.3 The reference server
@@ -478,16 +479,21 @@ results and their limits are in the
 A figure in requests per second means nothing without its machine. P-07
 to P-09 are set for this one:
 
-| | Reference server |
-|---|---|
-| Processor | 6 cores, of the class of an AMD Ryzen 5 5500 |
-| Memory | 16 GB |
-| System | Linux |
-| PHP | 8.2 or later, through PHP-FPM, OPcache on without checking the files, JIT off |
-| Database | MySQL, on the same machine |
-| nyuRuns | its final copy: production settings, config and table caches on |
+| | Reference server | The machine measured |
+|---|---|---|
+| Processor | 6 cores, of the class of an AMD Ryzen 5 5500 | Intel Core i3-7100U, 2 cores / 4 threads, 2.4 GHz: below |
+| Memory | 16 GB | 4 GB, 3.2 usable: below |
+| System | Linux | Ubuntu 26.04 |
+| PHP | 8.2 or later, through PHP-FPM, OPcache on without checking the files, JIT off | 8.5.4, through PHP-FPM, OPcache without checking the files |
+| Database | MySQL, on the same machine | MySQL 8.4, on the same machine |
+| nyuRuns | its final copy: production settings, config and table caches on | `bundles final`, `CNF_CACH` and `TBL_CACH` on |
 
-**Where the figures come from.** A request cost 2.67 ms of CPU in the web
+The software matches; the hardware falls well short, with about a third
+of the processor. So the figures of that machine are a lower bound for
+P-07 and P-08, never a measurement of them.
+
+**Where the figures come from.** The goals were set from the run of
+7 November, on Windows: a request cost 2.67 ms of CPU in the web
 server and 1.47 ms in MySQL, about 4.1 ms in all. Six fully busy cores
 would answer some 1,450 requests per second. The load goals take about
 half of that, leaving room for what load adds: waiting on locks,
@@ -502,9 +508,10 @@ lower.
   images and sounds weren't measured. Their goals will be set once a
   first measurement gives a basis.
 
-A goal is set before it's measured, so a measurement can meet it, or not.
-The load goals are next in line: the first load test, run on Windows,
-failed for lack of connections.
+A goal is set before it's measured, so a measurement can meet it, or
+not. The load goals now have a first lower bound, on a machine below the
+reference server; the measurement itself, at 50 clients on that class of
+machine, is still to come, and so is memory per request (P-09).
 
 ---
 

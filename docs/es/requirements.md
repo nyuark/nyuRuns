@@ -98,7 +98,7 @@ Cada propósito lleva a objetivos que se pueden comprobar:
 | O4 | Los archivos son una fuente de datos igual que las bases de datos, configurada en los ajustes | 3 | Versión 1.1; por ahora, una acción lee y escribe los archivos como documentos |
 | O5 | Una primera instalación se hace con un solo comando y no necesita ninguna base de datos | 2 | Cumplido |
 | O6 | Un servicio pasa de un archivo de usuarios a una base de datos, de una base de datos a varias, y de una aplicación a varias que trabajan juntas, sin reescribir su código | 2 | Cumplido |
-| O7 | Una petición no cuesta más CPU que con los microframeworks habituales, y bastante menos que con los frameworks completos | 4 | Cumplido (capítulo 7), medido el 7 de noviembre, antes del ciclo de vida y las rutas de los runs, la revisión de seguridad y el cambio de nombres; no medido desde entonces |
+| O7 | Una petición no cuesta más CPU que con los microframeworks habituales, y bastante menos que con los frameworks completos | 4 | Cumplido (capítulo 7), medido en Linux el 24 y 25 de noviembre de 2026, después del ciclo de vida y las rutas de los runs, la revisión de seguridad y el cambio de nombres |
 | O8 | El inicio de sesión, los roles, los límites de intentos, los códigos de doble factor, los tokens firmados y el ciclo de vida de las cuentas vienen con el framework, sin ninguna biblioteca que añadir | 5 | Cumplido |
 | O9 | El propio framework lee, escribe y envía documentos, imágenes, sonidos y correos electrónicos | 5 | Cumplido |
 | O10 | Un proyecto se instala, configura, comprueba, prueba y entrega desde una sola línea de comandos | 5 | Cumplido |
@@ -234,8 +234,8 @@ métodos, y su contenedor no se interpone en el camino de las aplicaciones.
   intercambio es una petición y su respuesta, y los sockets se dejan para la
   versión 1.1.
 - **Un servicio que deba aguantar una carga muy fuerte en un solo servidor,
-  sin mediciones propias**: nyuRuns se ha medido petición por petición, no
-  bajo carga (capítulo 7).
+  sin mediciones propias**: nyuRuns solo se ha medido bajo carga en una
+  máquina pequeña, muy por debajo del servidor de referencia (capítulo 7).
 
 ---
 
@@ -470,21 +470,22 @@ pesados. No debe pagar esa completitud con el coste de cada petición.
 
 | # | Objetivo | 1.0 |
 |---|---|---|
-| P-01 | Una petición cuesta al servidor como mucho 1,2 veces la CPU que cuesta con Slim, en la misma máquina, para el mismo trabajo | Cumplido: 1,0 veces (2,67 ms cada una; Flight 1,98 ms) |
-| P-02 | Una petición cuesta como mucho la mitad de la CPU que cuesta con Symfony, en la misma máquina, para el mismo trabajo | Cumplido: 0,41 veces (6,55 ms para Symfony; 8,37 ms para Laravel) |
+| P-01 | Una petición cuesta al servidor como mucho 1,2 veces la CPU que cuesta con Slim, en la misma máquina, para el mismo trabajo | Cumplido: 1,02 veces (4,39 ms frente a 4,28 ms de Slim; Flight 3,70 ms) |
+| P-02 | Una petición cuesta como mucho la mitad de la CPU que cuesta con Symfony, en la misma máquina, para el mismo trabajo | Cumplido, por poco: 0,45 veces, para un objetivo de 0,5 (9,70 ms para Symfony; Laravel 13,13 ms) |
 | P-03 | No envía a la base de datos más sentencias que ellos para el mismo trabajo | Cumplido: una para leer un registro, cinco para un registro con sus relaciones en el caso complejo del banco de pruebas |
 | P-04 | Una petición solo carga lo que usa: ninguna conexión si no se leen datos, ningún modelo si una acción no lo pide | Cumplido |
 | P-05 | Lo que el framework lee en cada petición (los ajustes, las rutas, las tablas) se lee una vez en producción, y luego desde una caché | Cumplido: `CNF_CACH`, `TBL_CACH`, activados por la copia de producción |
 | P-06 | Los datos grandes se leen y se envían trozo a trozo, nunca se guardan enteros en memoria | En parte: los archivos y los valores binarios se envían trozo a trozo; un cuerpo de petición se guarda entero, hasta `REQ_SIZE`, y un valor binario hasta su límite, entre el flujo y la base de datos |
-| P-07 | En el servidor de referencia (7.3), con 50 clientes a la vez, las lecturas ligeras del banco de pruebas (una lista, un registro, los proyectos de un usuario) atienden 800 peticiones por segundo o más, con el 1 % más lento respondido en menos de 150 ms y ninguna fallida | Aún no medido |
-| P-08 | En el servidor de referencia, con 50 clientes a la vez, las escrituras del banco de pruebas (un registro creado, una tarea, un comentario) atienden 500 peticiones por segundo o más, en las mismas condiciones | Aún no medido |
+| P-07 | En el servidor de referencia (7.3), con 50 clientes a la vez, las lecturas ligeras del banco de pruebas (una lista, un registro, los proyectos de un usuario) atienden 800 peticiones por segundo o más, con el 1 % más lento respondido en menos de 150 ms y ninguna fallida | No medido en el servidor de referencia. En una máquina más pequeña (7.3), una cota inferior: con 32 clientes, las lecturas ligeras superan las 1 040 peticiones por segundo, con el 1 % más lento respondido en 36,4 ms como mucho y ninguna fallida |
+| P-08 | En el servidor de referencia, con 50 clientes a la vez, las escrituras del banco de pruebas (un registro creado, una tarea, un comentario) atienden 500 peticiones por segundo o más, en las mismas condiciones | No medido en el servidor de referencia. En la misma máquina más pequeña, una cota inferior: con 32 clientes, las escrituras superan las 780 peticiones por segundo, con el 1 % más lento respondido en 52 ms como mucho y ninguna fallida detrás de nginx |
 | P-09 | Una petición de API usa como mucho 4 MB de memoria en su pico | Aún no medido |
 
 Los objetivos relativos (P-01, P-02) valen en cualquier máquina. Las cifras
-de la 1.0 vienen de la serie del 7 de noviembre de 2026, en una sola
-máquina, una petición cada vez, antes del ciclo de vida y las rutas de los
-runs, la revisión de seguridad y el cambio de nombres, y no se han vuelto a
-medir desde entonces. El método, los resultados escenario por escenario y
+de la 1.0 vienen de la serie del 24 y 25 de noviembre de 2026: un Intel NUC
+con Linux, detrás de nginx y detrás de Apache, con 1, 8 y 32 clientes a la
+vez, y cada cifra es la mediana de tres repeticiones. Lo que no cubre:
+PHP 8.2 (la serie usó la 8.5), el servidor de referencia, 50 clientes y la
+memoria por petición. El método, los resultados escenario por escenario y
 sus límites están en las
 [Especificaciones funcionales, capítulo 7](funcspecs.md#7-resultados-de-rendimiento).
 
@@ -493,16 +494,21 @@ sus límites están en las
 Una cifra en peticiones por segundo no significa nada sin su máquina. P-07
 a P-09 se fijan para esta:
 
-| | Servidor de referencia |
-|---|---|
-| Procesador | 6 núcleos, de la clase de un AMD Ryzen 5 5500 |
-| Memoria | 16 GB |
-| Sistema | Linux |
-| PHP | 8.2 o posterior, con PHP-FPM, OPcache activado sin comprobar los archivos, JIT desactivado |
-| Base de datos | MySQL, en la misma máquina |
-| nyuRuns | su copia `final`: ajustes de producción, cachés de configuración y de tablas activadas |
+| | Servidor de referencia | La máquina medida |
+|---|---|---|
+| Procesador | 6 núcleos, de la clase de un AMD Ryzen 5 5500 | Intel Core i3-7100U, 2 núcleos / 4 hilos, 2,4 GHz: por debajo |
+| Memoria | 16 GB | 4 GB, 3,2 utilizables: por debajo |
+| Sistema | Linux | Ubuntu 26.04 |
+| PHP | 8.2 o posterior, con PHP-FPM, OPcache activado sin comprobar los archivos, JIT desactivado | 8.5.4, con PHP-FPM, OPcache sin comprobar los archivos |
+| Base de datos | MySQL, en la misma máquina | MySQL 8.4, en la misma máquina |
+| nyuRuns | su copia `final`: ajustes de producción, cachés de configuración y de tablas activadas | `bundles final`, `CNF_CACH` y `TBL_CACH` activadas |
 
-**De dónde salen las cifras.** Una petición costaba 2,67 ms de CPU en el
+El software coincide; el hardware se queda muy corto, con alrededor de un
+tercio del procesador. Así que las cifras de esa máquina son una cota
+inferior para P-07 y P-08, nunca una medición de ellos.
+
+**De dónde salen las cifras.** Los objetivos se fijaron a partir de la
+serie del 7 de noviembre, en Windows: una petición costaba 2,67 ms de CPU en el
 servidor web y 1,47 ms en MySQL, unos 4,1 ms en total. Seis núcleos
 totalmente ocupados responderían a unas 1 450 peticiones por segundo. Los
 objetivos de carga toman más o menos la mitad, para dejar sitio a lo que
@@ -519,8 +525,10 @@ más bajo.
   fijarán cuando una primera medición dé una base.
 
 Un objetivo se fija antes de medirse, para que una medición pueda cumplirlo,
-o no. Los objetivos de carga son los siguientes: la primera prueba de
-carga, lanzada en Windows, falló por falta de conexiones.
+o no. Los objetivos de carga tienen ya una primera cota inferior, en una
+máquina por debajo del servidor de referencia; la medición en sí, con 50
+clientes en esa clase de máquina, está por hacer, igual que la memoria por
+petición (P-09).
 
 ---
 
